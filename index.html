@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="theme-color" content="#060b16"/>
+<title>École Champion — Révision Intelligente</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>"/>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body,#root{min-height:100vh;min-height:100dvh;background:#060b16;color:#fff;font-family:'Outfit',sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+input,select,button{font-family:inherit}
+select option{background:#111;color:#fff}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:4px}
+@keyframes fu{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes blink{0%%,100%%{opacity:1}50%%{opacity:.4}}
+.fu{animation:fu .3s ease both}
+.blink{animation:blink 1s ease infinite}
+</style>
+<script>(function(){var o=console.warn;console.warn=function(){if(arguments[0]&&typeof arguments[0]==="string"&&arguments[0].indexOf("in-browser Babel")>-1)return;o.apply(console,arguments);};})()</script>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<script type="text/babel" data-type="module">
+const { useState, useMemo, useEffect, useRef, useCallback } = React;
+
+// ═══ THEME ═══
+const Z = {
+  bg: "#060b16", c: "rgba(255,255,255,0.03)", bd: "rgba(255,255,255,0.06)",
+  w: "#fff", m: "rgba(255,255,255,0.42)", d: "rgba(255,255,255,0.25)",
+  g: "#22c55e", r: "#ef4444", a: "#f59e0b", b: "#0ea5e9", p: "#a855f7", t: "#14b8a6"
+};
+const FD = "'Libre Baskerville',Georgia,serif";
+const BR = "École Champion", BI = "🏆", BC = "#d4a017";
+
+// ═══ PERSISTENCE ═══
+const SK = "ecole_champion_v4";
+const defDB = {
+  users: { ADM001: { pw: "admin2026", role: "admin", name: "Directeur Général" } },
+  classes: ["Maternelle GS","CP","CE1","CE2","CM1","CM2","6ème A","6ème B","5ème A","5ème B","4ème A","4ème B","3ème A","3ème B","2nde A","1ère A","Tle A"],
+  chapters: {}
+};
+
+const loadDB = () => {
+  try {
+    const raw = window.localStorage?.getItem(SK);
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (p.users && p.classes) {
+        if (!p.chapters) p.chapters = {};
+        if (!Object.values(p.users).some(u => u.role === "admin")) {
+          p.users.ADM001 = defDB.users.ADM001;
+        }
+        return p;
+      }
+    }
+  } catch (e) { /* ignore */ }
+  return JSON.parse(JSON.stringify(defDB));
+};
+
+const saveDB = (db) => {
+  try { window.localStorage?.setItem(SK, JSON.stringify(db)); } catch (e) { /* ignore */ }
+};
+
+// ═══ CURRICULUM ═══
+const CUR = {
+  "Maternelle": { s: ["Éveil","Graphisme","Comptage","Langage oral","Motricité"], d: "Maternelle" },
+  "CP": { s: ["Lecture","Écriture","Mathématiques","Arabe"], d: "CP" },
+  "CE1": { s: ["Français","Mathématiques","Découverte du monde","Arabe","EPS"], d: "CE1" },
+  "CE2": { s: ["Français","Mathématiques","Sciences","Histoire-Géo","Arabe","EPS"], d: "CE2" },
+  "CM1": { s: ["Français","Mathématiques","Sciences","Histoire-Géo","Arabe","Anglais","EPS"], d: "CM1" },
+  "CM2": { s: ["Français","Mathématiques","Sciences","Histoire-Géo","Arabe","Anglais","Éducation civique","EPS"], d: "CM2" },
+  "6ème": { s: ["Français","Mathématiques","SVT","Physique-Chimie","Histoire-Géo","Arabe","Anglais","EPS"], d: "6ème" },
+  "5ème": { s: ["Français","Mathématiques","SVT","Physique-Chimie","Histoire-Géo","Arabe","Anglais","Technologie","EPS"], d: "5ème" },
+  "4ème": { s: ["Français","Mathématiques","SVT","Physique-Chimie","Histoire-Géo","Arabe","Anglais","Technologie","EPS"], d: "4ème" },
+  "3ème": { s: ["Français","Mathématiques","SVT","Physique-Chimie","Histoire-Géo","Arabe","Anglais","Technologie","Éducation civique","EPS"], d: "3ème (Brevet)" },
+  "2nde": { s: ["Français","Mathématiques","SVT","Physique-Chimie","Histoire-Géo","Arabe","Anglais","SES","EPS"], d: "Seconde" },
+  "1ère": { s: ["Français","Mathématiques","Histoire-Géo","Arabe","Anglais","Philosophie","EPS"], d: "Première" },
+  "Terminale": { s: ["Philosophie","Mathématiques","Histoire-Géo","Arabe","Anglais","EPS"], d: "Terminale (Bac)" }
+};
+const c2l = (cls) => {
+  if (!cls) return "3ème";
+  if (/Maternelle|GS|KG/i.test(cls)) return "Maternelle";
+  for (const l of Object.keys(CUR)) { if (cls.includes(l)) return l; }
+  return "3ème";
+};
+const SUB_LIST = ["Mathématiques","Français","Sciences","Histoire-Géo","Anglais","Arabe","Physique-Chimie","SVT","Philosophie","EPS","SES","Technologie","Éducation civique"];
+
+// Default chapters per subject
+const DEFAULT_CHAPTERS = {
+  "Mathématiques": ["Nombres et calculs","Algèbre","Géométrie","Statistiques et probabilités","Fonctions","Mesures et grandeurs"],
+  "Français": ["Grammaire","Conjugaison","Orthographe","Vocabulaire","Rédaction","Lecture et compréhension","Littérature"],
+  "Sciences": ["Le vivant","La matière","L'énergie","La Terre","Technologie"],
+  "SVT": ["La cellule","Nutrition","Reproduction","Écosystèmes","Génétique","Géologie"],
+  "Physique-Chimie": ["Électricité","Mécanique","Optique","Chimie des solutions","Atomes et molécules"],
+  "Histoire-Géo": ["Histoire de Djibouti","Afrique contemporaine","Géographie physique","Géographie humaine","Monde contemporain"],
+  "Anglais": ["Grammar","Vocabulary","Reading","Writing","Listening","Speaking"],
+  "Arabe": ["النحو (Grammaire)","الصرف (Morphologie)","التعبير الكتابي (Expression écrite)","القراءة (Lecture)","المحادثة (Conversation)"],
+  "Philosophie": ["La conscience","La liberté","Le devoir","La vérité","L'État","La justice"],
+  "EPS": ["Athlétisme","Sports collectifs","Gymnastique","Natation"],
+  "SES": ["Économie","Sociologie","Science politique"],
+  "Technologie": ["Informatique","Électronique","Mécanique","Programmation"],
+  "Éducation civique": ["Citoyenneté","Droits et devoirs","Institutions","Démocratie"],
+  "Éveil": ["Découverte du monde","Les animaux","Les plantes","Mon corps"],
+  "Graphisme": ["Tracer des lignes","Les formes","Écrire son prénom"],
+  "Comptage": ["Compter jusqu'à 10","Compter jusqu'à 20","Les formes géométriques"],
+  "Langage oral": ["Se présenter","Raconter une histoire","Vocabulaire quotidien"],
+  "Motricité": ["Courir","Sauter","Lancer","Équilibre"],
+  "Lecture": ["L'alphabet","Les syllabes","Lire des mots","Lire des phrases"],
+  "Écriture": ["Les lettres","Les mots","Copier","Écrire des phrases"],
+  "Découverte du monde": ["Les saisons","Les animaux","Mon quartier","L'eau"],
+  "Rédaction": ["Le récit","La description","Le dialogue","L'argumentation"],
+  "Vocabulaire": ["Synonymes","Antonymes","Champ lexical","Expressions"],
+  "Littérature": ["Le roman","La poésie","Le théâtre","La nouvelle"]
+};
+
+const getChaptersForSubject = (db, cls, subject) => {
+  const key = cls + "::" + subject;
+  if (db.chapters[key] && db.chapters[key].length > 0) return db.chapters[key];
+  return DEFAULT_CHAPTERS[subject] || ["Chapitre 1","Chapitre 2","Chapitre 3"];
+};
+
+// ═══ AI ═══
+const buildSys = (u, mode) => {
+  const lv = c2l(u.cls);
+  const cur = CUR[lv];
+  return `Tu es "${BR}", système pédagogique d'une école d'excellence à Djibouti. JAMAIS dire "IA" ou "intelligence artificielle". Tu es ${BR}.\nÉLÈVE: ${u.name} | ${u.cls} | ${lv} | Matières: ${(cur?.s || []).join(", ")}\nMODE: ${mode}\nAPRÈS CHAQUE réponse quiz: ✅ ou ❌ IMMÉDIATEMENT. FAUX=corriger+NOUVELLE question MÊME niveau. JUSTE=niveau supérieur.\nFormat quiz:\n[QUIZ]\nQ: question\nA) opt1\nB) opt2\nC) opt3\nD) opt4\nCORRECT: B\nEXPLICATION: explication\n[/QUIZ]\nSalue au nom de ${BR}.`;
+};
+
+// API Key management
+const getApiKey = () => {
+  try { return localStorage.getItem("ecole_champion_api_key") || ""; } catch(e) { return ""; }
+};
+const setApiKey = (k) => {
+  try { localStorage.setItem("ecole_champion_api_key", k); } catch(e) {}
+};
+
+const callAPI = async (msgs, sys) => {
+  const key = getApiKey();
+  if (!key) return "⚠️ Clé API non configurée. Allez dans Admin → ⚙️ pour la configurer.";
+  try {
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514", max_tokens: 1500, system: sys,
+        messages: msgs.map(m => ({ role: m.r === "school" ? "assistant" : "user", content: m.t }))
+      })
+    });
+    const d = await r.json();
+    if (d.content && d.content[0]) return d.content[0].text;
+    if (d.error) {
+      if (d.error.message && d.error.message.includes("invalid x-api-key"))
+        return "❌ Clé API invalide. Vérifiez votre clé dans Admin → ⚙️.";
+      return "Erreur: " + d.error.message;
+    }
+    return "Service indisponible.";
+  } catch (e) {
+    return "Erreur de connexion: " + e.message + ". Vérifiez votre internet.";
+  }
+};
+
+const parseQ = (t) => {
+  const qs = [];
+  const rx = /\[QUIZ\]([\s\S]*?)\[\/QUIZ\]/g;
+  let m;
+  while ((m = rx.exec(t)) !== null) {
+    const b = m[1];
+    const qM = b.match(/Q:\s*(.+)/);
+    const os = [];
+    for (const l of ["A","B","C","D"]) {
+      const o = b.match(new RegExp(l + "\\)\\s*(.+)"));
+      if (o) os.push(o[1].trim());
+    }
+    const cM = b.match(/CORRECT:\s*([A-D])/);
+    const eM = b.match(/EXPLICATION:\s*([\s\S]+?)$/m);
+    if (qM && os.length >= 2 && cM) {
+      qs.push({ q: qM[1].trim(), os, c: "ABCD".indexOf(cM[1]), ex: eM ? eM[1].trim() : "" });
+    }
+  }
+  return qs;
+};
+
+const renderMd = (t) => {
+  if (!t) return null;
+  return t.replace(/\[QUIZ\][\s\S]*?\[\/QUIZ\]/g, "").trim().split("\n").map((l, i) => {
+    if (!l.trim()) return <div key={i} style={{ height: 5 }} />;
+    let h = l.replace(/\*\*(.+?)\*\*/g, '<strong style="color:#fff">$1</strong>');
+    h = h.replace(/\*(.+?)\*/g, '<em style="color:' + BC + '">$1</em>');
+    if (l.startsWith("### ")) return <div key={i} style={{ fontSize: 13, fontWeight: 800, color: BC, margin: "8px 0 4px" }}>{l.slice(4)}</div>;
+    if (l.startsWith("## ")) return <div key={i} style={{ fontSize: 14, fontWeight: 800, margin: "8px 0 4px" }}>{l.slice(3)}</div>;
+    if (l.startsWith("- ") || l.startsWith("• ")) return <div key={i} style={{ paddingLeft: 10, fontSize: 12, color: "rgba(255,255,255,0.7)", lineHeight: 1.7 }}>• {l.slice(2)}</div>;
+    if (l.startsWith("> ")) return <div key={i} style={{ borderLeft: "3px solid " + BC, paddingLeft: 10, margin: "4px 0", fontSize: 12, color: "rgba(255,255,255,0.65)" }}>{l.slice(2)}</div>;
+    return <p key={i} style={{ fontSize: 12, color: "rgba(255,255,255,0.75)", lineHeight: 1.7, margin: "2px 0" }} dangerouslySetInnerHTML={{ __html: h }} />;
+  });
+};
+
+// ═══ MODES ═══
+const MODES = [
+  { id: "chat", ic: "💬", n: "DISCUSSION", d: "Pose tes questions", cl: Z.b },
+  { id: "setup", ic: "⚙️", n: "DIAGNOSTIC", d: "Évalue ton niveau", cl: "#6366f1" },
+  { id: "learn", ic: "📖", n: "COURS", d: "Leçons expliquées", cl: Z.g },
+  { id: "quiz", ic: "❓", n: "QUIZ", d: "Questions adaptées", cl: Z.a },
+  { id: "spaced", ic: "🔄", n: "RÉVISION", d: "Répétition espacée", cl: Z.p },
+  { id: "visual", ic: "🗺️", n: "CARTES", d: "Résumés visuels", cl: "#ec4899" },
+  { id: "research", ic: "🔍", n: "RECHERCHE", d: "Méthode socratique", cl: Z.t },
+  { id: "plan", ic: "📋", n: "PLANNING", d: "Plan sur mesure", cl: "#f97316" },
+  { id: "export", ic: "📤", n: "FICHES", d: "Fiches à garder", cl: "#8b5cf6" }
+];
+
+// ═══ UI ═══
+const st = { card: (extra = {}) => ({ padding: 16, borderRadius: 14, background: Z.c, border: "1px solid " + Z.bd, ...extra }) };
+const Cd = ({ children, s, onClick }) => <div onClick={onClick} style={{ ...st.card(s), cursor: onClick ? "pointer" : "default" }}>{children}</div>;
+const Btn = ({ children, color = Z.b, onClick, full, outline, s = {} }) => (
+  <button onClick={onClick} style={{ padding: "12px 22px", borderRadius: 10, border: outline ? "1px solid " + color + "30" : "none", background: outline ? "transparent" : color, color: outline ? color : Z.w, fontSize: 13, fontWeight: 800, cursor: "pointer", width: full ? "100%" : "auto", boxShadow: outline ? "none" : "0 4px 16px " + color + "25", ...s }}>{children}</button>
+);
+const Inp = ({ label, value, onChange, type = "text", ph = "", dis }) => (
+  <div style={{ marginBottom: 12 }}>
+    <label style={{ fontSize: 10, color: Z.m, fontWeight: 700, display: "block", marginBottom: 4 }}>{label}</label>
+    <input value={value} onChange={e => onChange(e.target.value)} type={type} placeholder={ph} disabled={dis}
+      style={{ width: "100%", padding: "11px 12px", borderRadius: 8, border: "1.5px solid " + Z.bd, background: "rgba(255,255,255,0.03)", color: dis ? Z.d : Z.w, fontSize: 13, outline: "none", boxSizing: "border-box", opacity: dis ? 0.5 : 1 }} />
+  </div>
+);
+const Sel = ({ label, value, onChange, options }) => (
+  <div style={{ marginBottom: 12 }}>
+    <label style={{ fontSize: 10, color: Z.m, fontWeight: 700, display: "block", marginBottom: 4 }}>{label}</label>
+    <select value={value} onChange={e => onChange(e.target.value)} style={{ width: "100%", padding: "11px 12px", borderRadius: 8, border: "1.5px solid " + Z.bd, background: "rgba(255,255,255,0.03)", color: Z.w, fontSize: 13, outline: "none", boxSizing: "border-box" }}>
+      <option value="">— Sélectionner —</option>
+      {options.map(o => <option key={o} value={o}>{o}</option>)}
+    </select>
+  </div>
+);
+const Hd = ({ t1, t2, onOut }) => (
+  <div style={{ padding: "12px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid " + Z.bd, background: "rgba(6,11,22,0.92)", backdropFilter: "blur(16px)", position: "sticky", top: 0, zIndex: 10 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ width: 32, height: 32, borderRadius: 8, background: BC + "20", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{BI}</div>
+      <div>
+        <div style={{ fontFamily: FD, fontSize: 14, fontWeight: 700 }}>{t1}</div>
+        <div style={{ fontSize: 10, color: Z.m, marginTop: 1 }}>{t2}</div>
+      </div>
+    </div>
+    <button onClick={onOut} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid " + Z.r + "25", background: Z.r + "0c", color: Z.r, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>↩</button>
+  </div>
+);
+const Nv = ({ tabs, act, onT, ac }) => (
+  <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, display: "flex", background: "rgba(6,11,22,0.97)", backdropFilter: "blur(20px)", borderTop: "1px solid " + Z.bd, padding: "5px 0 16px", zIndex: 20 }}>
+    {tabs.map(t => (
+      <div key={t.id} onClick={() => onT(t.id)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, cursor: "pointer", paddingTop: 4 }}>
+        <span style={{ fontSize: 17, opacity: act === t.id ? 1 : 0.3 }}>{t.ic}</span>
+        <span style={{ fontSize: 8, fontWeight: 700, color: act === t.id ? ac : Z.m }}>{t.lb}</span>
+        {act === t.id && <div style={{ width: 12, height: 2.5, borderRadius: 2, background: ac }} />}
+      </div>
+    ))}
+  </div>
+);
+
+// ═══ QUIZ CARD ═══
+const QCard = ({ q, onA, done, si }) => {
+  const ok = done && si === q.c;
+  return (
+    <Cd s={{ marginTop: 10, padding: 16, background: done ? (ok ? Z.g + "08" : Z.r + "08") : Z.c, border: "1px solid " + (done ? (ok ? Z.g : Z.r) : Z.bd) + "18" }}>
+      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, lineHeight: 1.5 }}>{q.q}</div>
+      {q.os.map((o, i) => {
+        const isT = done && i === si;
+        const isR = done && i === q.c;
+        return (
+          <button key={i} onClick={() => !done && onA(i)} disabled={done}
+            style={{ display: "block", width: "100%", padding: "11px 14px", borderRadius: 10, textAlign: "left", fontSize: 12, fontWeight: 600, cursor: done ? "default" : "pointer", marginBottom: 5, border: "1.5px solid " + (isR ? Z.g : isT && !ok ? Z.r : Z.bd), background: isR ? Z.g + "15" : isT && !ok ? Z.r + "15" : Z.c, color: isR ? Z.g : isT && !ok ? Z.r : Z.w }}>
+            {"ABCD"[i]}) {o}{isR && done ? " ✅" : ""}{isT && !ok && done ? " ❌" : ""}
+          </button>
+        );
+      })}
+      {done && (
+        <div style={{ marginTop: 10, padding: 10, borderRadius: 8, background: (ok ? Z.g : Z.r) + "08", border: "1px solid " + (ok ? Z.g : Z.r) + "15" }}>
+          <div style={{ fontSize: 11, fontWeight: 800, color: ok ? Z.g : Z.r }}>{ok ? "✅ Correct !" : "❌ Pas tout à fait..."}</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", lineHeight: 1.6, marginTop: 3 }}>{q.ex}</div>
+          {!ok && <div style={{ fontSize: 11, color: BC, marginTop: 6, fontWeight: 700 }}>{BI} {BR} prépare une question similaire...</div>}
+        </div>
+      )}
+    </Cd>
+  );
+};
+
+// ═══ CHAT ═══
+const Chat = ({ user, mode, onBack }) => {
+  const [msgs, setM] = useState([]);
+  const [inp, setI] = useState("");
+  const [ld, setLd] = useState(false);
+  const [qzs, setQz] = useState([]);
+  const [qA, setQA] = useState({});
+  const ref = useRef(null);
+  const mo = MODES.find(m => m.id === mode);
+  const sys = useMemo(() => buildSys(user, mo?.n || "DISCUSSION"), [user, mode]);
+  const lv = c2l(user.cls);
+  const cur = CUR[lv];
+
+  useEffect(() => {
+    setLd(true);
+    callAPI([{ r: "user", t: "Bonjour, je suis " + user.name + " en " + user.cls + ". Mode " + (mo?.n || "") + "." }], sys)
+      .then(r => { setM([{ r: "school", t: r }]); setQz(parseQ(r)); setLd(false); });
+  }, []);
+
+  useEffect(() => {
+    if (ref.current) ref.current.scrollTo({ top: ref.current.scrollHeight, behavior: "smooth" });
+  }, [msgs, ld, qzs]);
+
+  const send = async (custom) => {
+    const txt = custom || inp.trim();
+    if (!txt || ld) return;
+    if (!custom) setI("");
+    const nm = [...msgs, { r: "user", t: txt }];
+    setM(nm); setQz([]); setQA({}); setLd(true);
+    const r = await callAPI(nm.slice(-20), sys);
+    setM(p => [...p, { r: "school", t: r }]);
+    setQz(parseQ(r));
+    setLd(false);
+  };
+
+  const hQA = (qi, oi) => {
+    setQA(p => ({ ...p, [qi]: oi }));
+    const q = qzs[qi];
+    const ok = oi === q.c;
+    setTimeout(() => {
+      if (ok) send('✅ Correct "' + q.os[oi] + '". Niveau supérieur.');
+      else send('❌ Faux "' + q.os[oi] + '" à "' + q.q + '". Bonne: "' + q.os[q.c] + '". NOUVELLE question MÊME niveau.');
+    }, 1500);
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100dvh - 120px)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexShrink: 0 }}>
+        <button onClick={onBack} style={{ background: "none", border: "none", color: BC, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 }}>←</button>
+        <div style={{ width: 28, height: 28, borderRadius: 7, background: (mo?.cl || BC) + "18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>{mo?.ic || BI}</div>
+        <div style={{ flex: 1 }}><div style={{ fontSize: 12, fontWeight: 800 }}>{mo?.n}</div><div style={{ fontSize: 9, color: Z.m }}>{user.cls} • {lv}</div></div>
+        <div style={{ fontSize: 8, color: BC, fontWeight: 700, background: BC + "15", padding: "3px 8px", borderRadius: 10 }}>{BI} {BR}</div>
+      </div>
+      <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 6, flexShrink: 0 }}>
+        {(cur?.s || []).slice(0, 8).map(s => (
+          <button key={s} onClick={() => setI("Je veux travailler " + s)} style={{ padding: "4px 10px", borderRadius: 14, border: "1px solid " + Z.bd, background: Z.c, color: Z.m, fontSize: 9, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>{s}</button>
+        ))}
+      </div>
+      <div ref={ref} style={{ flex: 1, overflowY: "auto", paddingBottom: 10 }}>
+        {msgs.map((m, i) => (
+          <div key={i} style={{ display: "flex", justifyContent: m.r === "user" ? "flex-end" : "flex-start", marginBottom: 8 }}>
+            <div style={{ maxWidth: "88%", padding: m.r === "user" ? "10px 14px" : "12px 16px", borderRadius: m.r === "user" ? "14px 14px 4px 14px" : "14px 14px 14px 4px", background: m.r === "user" ? Z.b + "15" : "rgba(255,255,255,0.04)", border: "1px solid " + (m.r === "user" ? Z.b : Z.bd) + "15" }}>
+              {m.r === "school" && <div style={{ fontSize: 10, color: BC, fontWeight: 700, marginBottom: 4 }}>{BI} {BR}</div>}
+              {m.r === "school" ? <div>{renderMd(m.t)}</div> : <div style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", lineHeight: 1.6 }}>{m.t}</div>}
+            </div>
+          </div>
+        ))}
+        {qzs.map((q, i) => <QCard key={msgs.length + "-" + i} q={q} done={qA[i] !== undefined} si={qA[i]} onA={o => hQA(i, o)} />)}
+        {ld && <div style={{ fontSize: 12, color: BC, padding: 10, animation: "blink 1s ease infinite" }}>{BI} {BR} prépare ta réponse...</div>}
+      </div>
+      <div style={{ display: "flex", gap: 8, flexShrink: 0, paddingTop: 8 }}>
+        <input value={inp} onChange={e => setI(e.target.value)} onKeyDown={e => { if (e.key === "Enter") send(); }} placeholder="Pose ta question..." style={{ flex: 1, padding: "12px 14px", borderRadius: 10, border: "1.5px solid " + Z.bd, background: "rgba(255,255,255,0.03)", color: Z.w, fontSize: 13, outline: "none" }} />
+        <button onClick={() => send()} disabled={ld} style={{ padding: "12px 16px", borderRadius: 10, border: "none", background: BC, color: Z.w, fontWeight: 800, cursor: "pointer", opacity: ld ? 0.5 : 1, fontSize: 16 }}>↑</button>
+      </div>
+    </div>
+  );
+};
+
+// ═══ STUDENT ═══
+const StudentP = ({ user, onOut }) => {
+  const [tab, setTab] = useState("home");
+  const [mode, setMode] = useState(null);
+  const lv = c2l(user.cls);
+  const cur = CUR[lv];
+  const tabs = [{ id: "home", ic: "🏠", lb: "Accueil" }, { id: "modes", ic: "🏆", lb: "Modes" }, { id: "subjects", ic: "📚", lb: "Matières" }];
+
+  if (mode) return (
+    <div style={{ minHeight: "100dvh", background: "linear-gradient(170deg," + Z.bg + ",#0a1020)", color: Z.w }}>
+      <Hd t1={BR} t2={user.name + " • " + user.cls} onOut={onOut} />
+      <div style={{ padding: "10px 18px 80px" }}><Chat user={user} mode={mode} onBack={() => setMode(null)} /></div>
+      <Nv tabs={tabs} act="modes" onT={t => { setMode(null); setTab(t); }} ac={BC} />
+    </div>
+  );
+
+  return (
+    <div style={{ minHeight: "100dvh", background: "linear-gradient(170deg," + Z.bg + ",#0a1020)", color: Z.w }}>
+      <Hd t1={BR} t2={user.name + " • " + user.cls + " • " + lv} onOut={onOut} />
+      <div style={{ padding: "14px 18px 100px" }}>
+        {tab === "home" && (
+          <>
+            <Cd s={{ background: "linear-gradient(135deg," + BC + "12," + Z.p + "08)", border: "1px solid " + BC + "25", padding: 20, marginBottom: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: BC + "20", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>{BI}</div>
+                <div><div style={{ fontSize: 16, fontWeight: 800, fontFamily: FD }}>Bienvenue {user.name.split(" ")[0]} !</div><div style={{ fontSize: 11, color: Z.m }}>{BR} • {lv}</div></div>
+              </div>
+              <p style={{ fontSize: 12, color: Z.m, lineHeight: 1.6, margin: "0 0 12px" }}>Cours, quiz, révisions — tout adapté à ton niveau.</p>
+              <Btn onClick={() => { setTab("modes"); setMode("chat"); }} color={BC}>💬 Commencer →</Btn>
+            </Cd>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {[{ m: "setup", i: "⚙️", l: "Diagnostic", c: "#6366f1" }, { m: "quiz", i: "❓", l: "Quiz", c: Z.a }, { m: "learn", i: "📖", l: "Cours", c: Z.g }, { m: "plan", i: "📋", l: "Planning", c: "#f97316" }].map(x => (
+                <Cd key={x.m} onClick={() => setMode(x.m)} s={{ textAlign: "center", padding: 14, background: x.c + "08", border: "1px solid " + x.c + "18" }}>
+                  <div style={{ fontSize: 22, marginBottom: 4 }}>{x.i}</div>
+                  <div style={{ fontSize: 11, fontWeight: 800 }}>{x.l}</div>
+                </Cd>
+              ))}
+            </div>
+          </>
+        )}
+        {tab === "modes" && (
+          <>
+            <div style={{ fontSize: 14, fontWeight: 800, fontFamily: FD, marginBottom: 14 }}>{BI} 9 modes</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {MODES.map(m => (
+                <Cd key={m.id} onClick={() => setMode(m.id)} s={{ textAlign: "center", padding: 14, background: m.cl + "08", border: "1px solid " + m.cl + "18" }}>
+                  <div style={{ fontSize: 24, marginBottom: 4 }}>{m.ic}</div>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: m.cl }}>{m.n}</div>
+                  <div style={{ fontSize: 9, color: Z.m, marginTop: 3 }}>{m.d}</div>
+                </Cd>
+              ))}
+            </div>
+          </>
+        )}
+        {tab === "subjects" && (
+          <>
+            <div style={{ fontSize: 14, fontWeight: 800, fontFamily: FD, marginBottom: 14 }}>📚 {lv} — Matières</div>
+            {(cur?.s || []).map((s, i) => (
+              <Cd key={s} onClick={() => setMode("learn")} s={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 12, padding: 14 }}>
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: [Z.b, Z.p, Z.g, Z.a, Z.t, "#ec4899", Z.r, "#6366f1"][i % 8] + "18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17 }}>📚</div>
+                <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 800 }}>{s}</div></div>
+                <span style={{ color: BC, fontWeight: 700 }}>→</span>
+              </Cd>
+            ))}
+          </>
+        )}
+      </div>
+      <Nv tabs={tabs} act={tab} onT={t => { setTab(t); setMode(null); }} ac={BC} />
+    </div>
+  );
+};
+
+// ═══ PARENT ═══
+const ParentP = ({ user, db, onOut }) => {
+  const ch = (user.childIds || []).map(id => ({ id, ...(db.users[id] || {}) })).filter(c => c.name);
+  return (
+    <div style={{ minHeight: "100dvh", background: "linear-gradient(170deg," + Z.bg + ",#0a1020)", color: Z.w }}>
+      <Hd t1={BR + " — Parent"} t2={user.name} onOut={onOut} />
+      <div style={{ padding: "14px 18px 100px" }}>
+        {ch.length === 0 && <Cd s={{ textAlign: "center", padding: 24 }}><div style={{ fontSize: 14, fontWeight: 800 }}>Aucun enfant associé</div></Cd>}
+        {ch.map(c => (
+          <Cd key={c.id} s={{ marginBottom: 12, background: Z.p + "0c", border: "1px solid " + Z.p + "20" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: Z.p + "20", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 800 }}>{(c.name || "?")[0]}</div>
+              <div><div style={{ fontSize: 16, fontWeight: 800, fontFamily: FD }}>{c.name}</div><div style={{ fontSize: 11, color: Z.m }}>Classe: {c.cls} • {c2l(c.cls)}</div></div>
+            </div>
+          </Cd>
+        ))}
+        <Cd><div style={{ fontSize: 12, fontWeight: 800, marginBottom: 8 }}>{BI} {BR}</div><p style={{ fontSize: 11, color: Z.m, lineHeight: 1.6, margin: 0 }}>Chaque quiz est unique. Correction immédiate. 9 modes d'apprentissage.</p></Cd>
+      </div>
+    </div>
+  );
+};
+
+// ═══ TEACHER — WITH CHAPTER ACCESS ═══
+const TeacherP = ({ user, db, setDB, onOut }) => {
+  const [tab, setTab] = useState("home");
+  const [selSubj, setSS] = useState(null);
+  const [selCls, setSC] = useState(null);
+  const [newCh, setNCh] = useState("");
+  const [msg, setMsg] = useState("");
+
+  const stu = Object.entries(db.users).filter(([, u]) => u.role === "student" && (user.classes || []).includes(u.cls)).map(([id, u]) => ({ id, ...u }));
+  const myClasses = user.classes || [];
+
+  const addChapter = (cls, subj) => {
+    if (!newCh.trim()) return;
+    const key = cls + "::" + subj;
+    const existing = db.chapters[key] || DEFAULT_CHAPTERS[subj] || [];
+    if (existing.includes(newCh.trim())) { setMsg("❌ Ce chapitre existe déjà"); return; }
+    const updated = [...existing, newCh.trim()];
+    setDB(prev => ({ ...prev, chapters: { ...prev.chapters, [key]: updated } }));
+    setNCh("");
+    setMsg("✅ Chapitre ajouté: " + newCh.trim());
+  };
+
+  const tabs = [{ id: "home", ic: "🏠", lb: "Tableau" }, { id: "chapters", ic: "📖", lb: "Chapitres" }, { id: "stu", ic: "👥", lb: "Élèves" }];
+
+  return (
+    <div style={{ minHeight: "100dvh", background: "linear-gradient(170deg," + Z.bg + ",#0a1020)", color: Z.w }}>
+      <Hd t1={BR + " — Enseignant"} t2={user.name + " • " + user.subject} onOut={onOut} />
+      <div style={{ padding: "14px 18px 100px" }}>
+        {tab === "home" && (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
+              <Cd s={{ padding: 12, background: Z.a + "08", border: "1px solid " + Z.a + "18" }}><div style={{ fontSize: 20, fontWeight: 800 }}>{stu.length}</div><div style={{ fontSize: 10, color: Z.m }}>Élèves</div></Cd>
+              <Cd s={{ padding: 12, background: Z.b + "08", border: "1px solid " + Z.b + "18" }}><div style={{ fontSize: 20, fontWeight: 800 }}>{myClasses.length}</div><div style={{ fontSize: 10, color: Z.m }}>Classes</div></Cd>
+            </div>
+            <Cd s={{ background: BC + "08", border: "1px solid " + BC + "18" }}>
+              <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 6 }}>{BI} {BR}</div>
+              <p style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", margin: 0, lineHeight: 1.6 }}>Accédez aux chapitres de votre matière par classe. Vous pouvez ajouter des chapitres supplémentaires.</p>
+            </Cd>
+          </>
+        )}
+
+        {tab === "chapters" && !selCls && (
+          <>
+            <div style={{ fontSize: 14, fontWeight: 800, fontFamily: FD, marginBottom: 14 }}>📖 {user.subject} — Chapitres par classe</div>
+            {myClasses.map(cls => {
+              const chapters = getChaptersForSubject(db, cls, user.subject);
+              return (
+                <Cd key={cls} onClick={() => setSC(cls)} s={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 12, padding: 14 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: Z.g + "18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800 }}>{chapters.length}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 800 }}>{cls}</div>
+                    <div style={{ fontSize: 10, color: Z.m }}>{chapters.length} chapitres • {user.subject}</div>
+                  </div>
+                  <span style={{ color: Z.g, fontWeight: 700 }}>→</span>
+                </Cd>
+              );
+            })}
+          </>
+        )}
+
+        {tab === "chapters" && selCls && (
+          <>
+            <button onClick={() => setSC(null)} style={{ background: "none", border: "none", color: Z.g, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0, marginBottom: 12 }}>← Retour aux classes</button>
+            <div style={{ fontSize: 14, fontWeight: 800, fontFamily: FD, marginBottom: 4 }}>{selCls} — {user.subject}</div>
+            <div style={{ fontSize: 11, color: Z.m, marginBottom: 14 }}>Chapitres détaillés</div>
+
+            {getChaptersForSubject(db, selCls, user.subject).map((ch, i) => (
+              <Cd key={i} s={{ marginBottom: 6, padding: 12, display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 26, height: 26, borderRadius: 7, background: Z.g + "18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: Z.g }}>{i + 1}</div>
+                <div style={{ flex: 1, fontSize: 12, fontWeight: 600 }}>{ch}</div>
+              </Cd>
+            ))}
+
+            <Cd s={{ marginTop: 14, padding: 14 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 8 }}>➕ Ajouter un chapitre</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input value={newCh} onChange={e => setNCh(e.target.value)} onKeyDown={e => { if (e.key === "Enter") addChapter(selCls, user.subject); }} placeholder="Nom du chapitre" style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "1.5px solid " + Z.bd, background: "rgba(255,255,255,0.03)", color: Z.w, fontSize: 12, outline: "none" }} />
+                <Btn onClick={() => addChapter(selCls, user.subject)} color={Z.g} s={{ fontSize: 11, padding: "10px 16px" }}>+ Ajouter</Btn>
+              </div>
+              {msg && <div style={{ marginTop: 8, fontSize: 11, color: msg[0] === "✅" ? Z.g : Z.r }}>{msg}</div>}
+            </Cd>
+          </>
+        )}
+
+        {tab === "stu" && (
+          <>
+            <div style={{ fontSize: 14, fontWeight: 800, fontFamily: FD, marginBottom: 14 }}>👥 Mes élèves</div>
+            {stu.length === 0 && <Cd s={{ textAlign: "center", padding: 20 }}><p style={{ fontSize: 12, color: Z.m }}>Aucun élève dans vos classes</p></Cd>}
+            {stu.map(s => (
+              <Cd key={s.id} s={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 10, padding: 12 }}>
+                <div style={{ width: 34, height: 34, borderRadius: 8, background: Z.a + "18", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14 }}>{(s.name || "?")[0]}</div>
+                <div style={{ flex: 1 }}><div style={{ fontSize: 12, fontWeight: 700 }}>{s.name}</div><div style={{ fontSize: 10, color: Z.d }}>{s.cls} • {s.id}</div></div>
+              </Cd>
+            ))}
+          </>
+        )}
+      </div>
+      <Nv tabs={tabs} act={tab} onT={t => { setTab(t); setSC(null); setMsg(""); }} ac={Z.a} />
+    </div>
+  );
+};
+
+
+// ═══ API KEY SETUP ═══
+const ApiKeySetup = () => {
+  const [key, setKey] = useState(getApiKey());
+  const [show, setShow] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const save = () => { setApiKey(key.trim()); setSaved(true); setTimeout(() => setSaved(false), 2000); };
+  return (
+    <Cd s={{ marginBottom: 14, padding: 16, background: BC + "08", border: "1px solid " + BC + "18" }}>
+      <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 8 }}>⚙️ Configuration API — Claude</div>
+      <p style={{ fontSize: 11, color: Z.m, lineHeight: 1.5, margin: "0 0 10px" }}>
+        Pour que {BR} fonctionne, entrez votre clé API Anthropic. Obtenez-la sur <strong style={{ color: Z.w }}>console.anthropic.com</strong>
+      </p>
+      <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+        <input value={key} onChange={e => setKey(e.target.value)} type={show ? "text" : "password"}
+          placeholder="sk-ant-..." style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "1.5px solid " + Z.bd, background: "rgba(255,255,255,0.03)", color: Z.w, fontSize: 12, outline: "none", fontFamily: "monospace" }} />
+        <button onClick={() => setShow(!show)} style={{ padding: "0 10px", borderRadius: 8, border: "1px solid " + Z.bd, background: Z.c, color: Z.m, cursor: "pointer" }}>{show ? "🙈" : "👁️"}</button>
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <Btn onClick={save} color={BC} s={{ fontSize: 11, padding: "8px 16px" }}>💾 Sauvegarder la clé</Btn>
+        {saved && <span style={{ fontSize: 11, color: Z.g, alignSelf: "center" }}>✅ Sauvegardée !</span>}
+        {key && !saved && <span style={{ fontSize: 11, color: Z.g, alignSelf: "center" }}>🟢 Clé configurée</span>}
+      </div>
+    </Cd>
+  );
+};
+
+// ═══ ADMIN — CLASS + USER + CHAPTER OVERVIEW ═══
+const AdminP = ({ user, db, setDB, onOut }) => {
+  const [tab, setTab] = useState("home");
+  const [cM, setCM] = useState(null);
+  const [eId, setEI] = useState(null);
+  const [fd, setFd] = useState({});
+  const [msg, setMsg] = useState("");
+  const [fR, setFR] = useState("all");
+  const [sr, setSr] = useState("");
+  const [sp, setSP] = useState(false);
+  const [cd, setCD] = useState(null);
+  const [nc, setNC] = useState("");
+  const [selC, setSC] = useState(null);
+  const [viewSubj, setVS] = useState(null);
+  const ac = "#10b981";
+
+  const us = db.users;
+  const cls = db.classes || [];
+  const all = Object.entries(us).map(([id, u]) => ({ id, ...u }));
+  const sts = all.filter(u => u.role === "student");
+  const prs = all.filter(u => u.role === "parent");
+  const tcs = all.filter(u => u.role === "teacher");
+  const ads = all.filter(u => u.role === "admin");
+  const flt = all.filter(u => {
+    if (fR !== "all" && u.role !== fR) return false;
+    if (sr && !(u.name || "").toLowerCase().includes(sr.toLowerCase()) && !u.id.toLowerCase().includes(sr.toLowerCase())) return false;
+    return true;
+  });
+  const sInC = (c) => sts.filter(s => s.cls === c);
+
+  const genId = (r) => { const p = r === "student" ? "ECE" : r === "parent" ? "PAR" : r === "teacher" ? "PROF" : "ADM"; let n = 1; while (us[p + String(n).padStart(3, "0")]) n++; return p + String(n).padStart(3, "0"); };
+  const startC = (r) => { const id = genId(r); const b = { id, pw: "", name: "", role: r }; if (r === "student") { b.cls = ""; b.parentId = ""; } if (r === "parent") b.childIds = []; if (r === "teacher") { b.subject = ""; b.classes = []; } setFd(b); setCM(r); setEI(null); setMsg(""); };
+  const startE = (u) => { setFd({ ...u }); setEI(u.id); setCM(null); setMsg(""); setSP(false); setCD(null); };
+
+  const doSave = () => {
+    const d = fd;
+    if (!(d.name || "").trim()) { setMsg("❌ Nom obligatoire"); return; }
+    if (!(d.pw || "").trim() || d.pw.length < 4) { setMsg("❌ MDP obligatoire (min 4)"); return; }
+    if (d.role === "student" && !d.cls) { setMsg("❌ Classe obligatoire"); return; }
+    if (d.role === "teacher" && !d.subject) { setMsg("❌ Matière obligatoire"); return; }
+    if (d.role === "teacher" && (!d.classes || !d.classes.length)) { setMsg("❌ Au moins 1 classe obligatoire"); return; }
+
+    const id = d.id;
+    const ud = { pw: d.pw.trim(), role: d.role, name: d.name.trim() };
+    const nu = { ...us };
+
+    if (d.role === "student") {
+      ud.cls = d.cls; ud.parentId = d.parentId || "";
+      if (d.parentId && nu[d.parentId]) {
+        const pr = { ...nu[d.parentId] }; if (!pr.childIds) pr.childIds = [];
+        if (!pr.childIds.includes(id)) pr.childIds = [...pr.childIds, id]; nu[d.parentId] = pr;
+      }
+      if (eId) { const old = (us[id] || {}).parentId; if (old && old !== d.parentId && nu[old]) nu[old] = { ...nu[old], childIds: (nu[old].childIds || []).filter(c => c !== id) }; }
+    }
+    if (d.role === "parent") {
+      ud.childIds = d.childIds || [];
+      (d.childIds || []).forEach(c => { if (nu[c]) nu[c] = { ...nu[c], parentId: id }; });
+      if (eId) { ((us[id] || {}).childIds || []).filter(c => !(d.childIds || []).includes(c)).forEach(c => { if (nu[c]) nu[c] = { ...nu[c], parentId: "" }; }); }
+    }
+    if (d.role === "teacher") { ud.subject = d.subject; ud.classes = d.classes || []; }
+    nu[id] = ud;
+    setDB(p => ({ ...p, users: nu }));
+    setMsg("✅ " + (cM ? "Créé" : "Modifié") + ": " + d.name + " (" + id + ")");
+    setCM(null); setEI(null);
+  };
+
+  const doDel = (id) => {
+    if (id === user.uid) { setMsg("❌ Auto-suppression impossible"); return; }
+    const u = us[id]; const nu = { ...us };
+    if (u.role === "student" && u.parentId && nu[u.parentId]) nu[u.parentId] = { ...nu[u.parentId], childIds: (nu[u.parentId].childIds || []).filter(c => c !== id) };
+    if (u.role === "parent") (u.childIds || []).forEach(c => { if (nu[c]) nu[c] = { ...nu[c], parentId: "" }; });
+    delete nu[id]; setDB(p => ({ ...p, users: nu })); setMsg("🗑️ Supprimé"); setEI(null); setCD(null);
+  };
+
+  const addCls = () => {
+    if (!nc.trim()) { setMsg("❌ Nom vide"); return; }
+    if (cls.includes(nc.trim())) { setMsg("❌ Existe déjà"); return; }
+    setDB(p => ({ ...p, classes: [...p.classes, nc.trim()] })); setNC(""); setMsg("✅ Classe: " + nc.trim());
+  };
+  const delCls = (c) => {
+    if (sInC(c).length) { setMsg("❌ " + sInC(c).length + " élève(s) dedans"); return; }
+    setDB(p => ({ ...p, classes: p.classes.filter(x => x !== c) })); setMsg("🗑️ Classe supprimée"); if (selC === c) setSC(null);
+  };
+
+  const rI = (r) => r === "student" ? "🎓" : r === "parent" ? "👨‍👩‍👧" : r === "teacher" ? "📚" : "🏫";
+  const rL = (r) => r === "student" ? "Élève" : r === "parent" ? "Parent" : r === "teacher" ? "Enseignant" : "Admin";
+  const rC = (r) => r === "student" ? Z.b : r === "parent" ? Z.p : r === "teacher" ? Z.a : ac;
+
+  const tabs = [{ id: "home", ic: "🏠", lb: "Pilotage" }, { id: "classes", ic: "🏫", lb: "Classes" }, { id: "users", ic: "👥", lb: "Utilisateurs" }, { id: "create", ic: "➕", lb: "Créer" }];
+
+  // FORM
+  const renderForm = () => {
+    const d = fd; const isN = !!cM;
+    return (
+      <>
+        <button onClick={() => { setCM(null); setEI(null); setMsg(""); }} style={{ background: "none", border: "none", color: ac, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0, marginBottom: 12 }}>← Retour</button>
+        <Cd s={{ padding: 20, marginBottom: 14, background: rC(d.role) + "08", border: "1px solid " + rC(d.role) + "18" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 24 }}>{rI(d.role)}</span>
+            <div><div style={{ fontSize: 16, fontWeight: 800, fontFamily: FD }}>{isN ? "Nouveau " + rL(d.role) : "Modifier: " + d.name}</div><div style={{ fontSize: 11, color: Z.m }}>ID: {d.id}</div></div>
+          </div>
+        </Cd>
+        <Cd s={{ padding: 20 }}>
+          <Inp label="ID (auto)" value={d.id} onChange={() => {}} dis />
+          <Inp label="NOM COMPLET *" value={d.name || ""} onChange={v => setFd({ ...d, name: v })} ph="Prénom Nom" />
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: 10, color: Z.m, fontWeight: 700, display: "block", marginBottom: 4 }}>MOT DE PASSE * (min 4)</label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input value={d.pw || ""} onChange={e => setFd({ ...d, pw: e.target.value })} type={sp ? "text" : "password"} placeholder="Min 4" style={{ flex: 1, padding: "11px 12px", borderRadius: 8, border: "1.5px solid " + Z.bd, background: "rgba(255,255,255,0.03)", color: Z.w, fontSize: 13, outline: "none" }} />
+              <button onClick={() => setSP(!sp)} style={{ padding: "0 12px", borderRadius: 8, border: "1px solid " + Z.bd, background: Z.c, color: Z.m, cursor: "pointer" }}>{sp ? "🙈" : "👁️"}</button>
+            </div>
+          </div>
+          {d.role === "student" && (
+            <>
+              <Sel label="CLASSE *" value={d.cls || ""} onChange={v => setFd({ ...d, cls: v })} options={cls} />
+              <Sel label="PARENT (optionnel)" value={d.parentId || ""} onChange={v => setFd({ ...d, parentId: v })} options={prs.map(p => p.id)} />
+              {d.parentId && us[d.parentId] && <div style={{ fontSize: 11, color: Z.g, marginTop: -8, marginBottom: 8 }}>✓ {us[d.parentId].name}</div>}
+            </>
+          )}
+          {d.role === "parent" && (
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 10, color: Z.m, fontWeight: 700, display: "block", marginBottom: 6 }}>ENFANTS</label>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {sts.map(s => { const sl = (d.childIds || []).includes(s.id); return (
+                  <button key={s.id} onClick={() => setFd({ ...d, childIds: sl ? (d.childIds || []).filter(x => x !== s.id) : [...(d.childIds || []), s.id] })}
+                    style={{ padding: "7px 12px", borderRadius: 8, border: "1.5px solid " + (sl ? Z.g : Z.bd), background: sl ? Z.g + "15" : "transparent", color: sl ? Z.g : Z.m, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                    {sl ? "✓ " : ""}{s.name} ({s.cls})
+                  </button>
+                ); })}
+              </div>
+            </div>
+          )}
+          {d.role === "teacher" && (
+            <>
+              <Sel label="MATIÈRE *" value={d.subject || ""} onChange={v => setFd({ ...d, subject: v })} options={SUB_LIST} />
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 10, color: Z.m, fontWeight: 700, display: "block", marginBottom: 6 }}>CLASSES * (min 1)</label>
+                <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                  {cls.map(c => { const s = (d.classes || []).includes(c); return (
+                    <button key={c} onClick={() => setFd({ ...d, classes: s ? (d.classes || []).filter(x => x !== c) : [...(d.classes || []), c] })}
+                      style={{ padding: "5px 10px", borderRadius: 6, border: "1px solid " + (s ? Z.b : Z.bd), background: s ? Z.b + "18" : "transparent", color: s ? Z.b : Z.m, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>{c}</button>
+                  ); })}
+                </div>
+              </div>
+            </>
+          )}
+          {msg && <div style={{ padding: 12, borderRadius: 8, background: (msg.startsWith("✅") || msg.startsWith("🗑") ? Z.g : Z.r) + "0c", fontSize: 12, color: msg.startsWith("✅") || msg.startsWith("🗑") ? Z.g : Z.r, marginBottom: 12 }}>{msg}</div>}
+          <Btn onClick={doSave} color={ac} full>{isN ? "✅ Créer" : "💾 Sauvegarder"}</Btn>
+          {!isN && d.id !== user.uid && (
+            cd === d.id ? (
+              <div style={{ marginTop: 12, padding: 14, borderRadius: 10, background: Z.r + "0c", border: "1px solid " + Z.r + "20" }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: Z.r, marginBottom: 8 }}>⚠️ Confirmer ?</div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <Btn onClick={() => doDel(d.id)} color={Z.r} s={{ flex: 1, fontSize: 12 }}>🗑️ Oui</Btn>
+                  <Btn onClick={() => setCD(null)} outline color={Z.w} s={{ flex: 1, fontSize: 12 }}>Annuler</Btn>
+                </div>
+              </div>
+            ) : <Btn onClick={() => setCD(d.id)} outline color={Z.r} full s={{ marginTop: 12 }}>🗑️ Supprimer</Btn>
+          )}
+        </Cd>
+      </>
+    );
+  };
+
+  return (
+    <div style={{ minHeight: "100dvh", background: "linear-gradient(170deg," + Z.bg + ",#0a1020)", color: Z.w }}>
+      <Hd t1={BR + " — Admin"} t2={user.name + " • " + user.uid} onOut={onOut} />
+      <div style={{ padding: "14px 18px 100px" }}>
+        {(cM || eId) ? renderForm() : (
+          <>
+            {/* HOME */}
+            {tab === "home" && (
+              <>
+                <ApiKeySetup />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
+                  {[{ v: sts.length, l: "Élèves", c: Z.b, i: "🎓" }, { v: prs.length, l: "Parents", c: Z.p, i: "👨‍👩‍👧" }, { v: tcs.length, l: "Enseignants", c: Z.a, i: "📚" }, { v: ads.length, l: "Admins", c: ac, i: "🏫" }].map((s, i) => (
+                    <Cd key={i} s={{ padding: 12, background: s.c + "08", border: "1px solid " + s.c + "18" }}>
+                      <div style={{ fontSize: 16, marginBottom: 4 }}>{s.i}</div>
+                      <div style={{ fontSize: 22, fontWeight: 800 }}>{s.v}</div>
+                      <div style={{ fontSize: 10, color: Z.m, marginTop: 2 }}>{s.l}</div>
+                    </Cd>
+                  ))}
+                </div>
+
+                {/* Chapter overview by class */}
+                <Cd s={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 10 }}>📖 Chapitres par classe (titres)</div>
+                  {cls.slice(0, 6).map(c => {
+                    const lv = c2l(c);
+                    const subjects = CUR[lv]?.s || [];
+                    return (
+                      <div key={c} style={{ marginBottom: 8 }}>
+                        <div onClick={() => setVS(viewSubj === c ? null : c)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", cursor: "pointer", borderBottom: "1px solid " + Z.bd }}>
+                          <span style={{ fontSize: 12, fontWeight: 800 }}>{c}</span>
+                          <span style={{ fontSize: 10, color: Z.m, flex: 1 }}>{subjects.length} matières</span>
+                          <span style={{ fontSize: 10, color: Z.m }}>{viewSubj === c ? "▼" : "▶"}</span>
+                        </div>
+                        {viewSubj === c && subjects.map(subj => (
+                          <div key={subj} style={{ paddingLeft: 12, padding: "4px 0 4px 12px" }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: Z.b }}>{subj}</div>
+                            {getChaptersForSubject(db, c, subj).map((ch, j) => (
+                              <div key={j} style={{ fontSize: 10, color: Z.d, paddingLeft: 10 }}>• {ch}</div>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </Cd>
+
+                <Cd s={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 10 }}>🔗 Liaisons parent ↔ élève</div>
+                  {sts.map(s => {
+                    const pr = s.parentId ? us[s.parentId] : null;
+                    return (
+                      <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid " + Z.bd }}>
+                        <span style={{ fontSize: 11 }}>🎓</span>
+                        <span style={{ flex: 1, fontSize: 11, fontWeight: 700 }}>{s.name} <span style={{ color: Z.d, fontWeight: 400 }}>({s.cls})</span></span>
+                        {pr ? <span style={{ fontSize: 10, color: Z.g }}>↔ {pr.name}</span> : <span style={{ fontSize: 10, color: Z.r }}>⚠️</span>}
+                      </div>
+                    );
+                  })}
+                </Cd>
+                {msg && <div style={{ padding: 10, borderRadius: 8, background: Z.g + "0c", fontSize: 12, color: Z.g }}>{msg}</div>}
+              </>
+            )}
+
+            {/* CLASSES */}
+            {tab === "classes" && (
+              <>
+                <div style={{ fontSize: 14, fontWeight: 800, fontFamily: FD, marginBottom: 4 }}>🏫 Classes ({cls.length})</div>
+                <div style={{ fontSize: 11, color: Z.m, marginBottom: 14 }}>Un élève = une seule classe</div>
+                <Cd s={{ marginBottom: 14, padding: 14 }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 8 }}>➕ Nouvelle classe</div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input value={nc} onChange={e => setNC(e.target.value)} onKeyDown={e => { if (e.key === "Enter") addCls(); }} placeholder="Ex: 4ème C" style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "1.5px solid " + Z.bd, background: "rgba(255,255,255,0.03)", color: Z.w, fontSize: 12, outline: "none" }} />
+                    <Btn onClick={addCls} color={ac} s={{ fontSize: 11, padding: "10px 16px" }}>+ Créer</Btn>
+                  </div>
+                </Cd>
+                {cls.map(c => {
+                  const si = sInC(c); const open = selC === c;
+                  return (
+                    <Cd key={c} s={{ marginBottom: 8, padding: 0, overflow: "hidden" }}>
+                      <div onClick={() => setSC(open ? null : c)} style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 10, cursor: "pointer", background: open ? ac + "0c" : "transparent" }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 10, background: ac + "18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800 }}>{si.length}</div>
+                        <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 800 }}>{c}</div><div style={{ fontSize: 10, color: Z.m }}>{si.length} élève(s) • {c2l(c)}</div></div>
+                        <span style={{ fontSize: 12, color: Z.m }}>{open ? "▼" : "▶"}</span>
+                      </div>
+                      {open && (
+                        <div style={{ padding: "0 16px 14px", borderTop: "1px solid " + Z.bd }}>
+                          {si.length === 0 ? <div style={{ padding: "10px 0", fontSize: 11, color: Z.d }}>Aucun élève</div> :
+                            si.map(s => (
+                              <div key={s.id} onClick={() => startE(s)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid " + Z.bd, cursor: "pointer" }}>
+                                <div style={{ width: 28, height: 28, borderRadius: 7, background: Z.b + "18", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 11 }}>{(s.name || "?")[0]}</div>
+                                <div style={{ flex: 1 }}><div style={{ fontSize: 12, fontWeight: 700 }}>{s.name}</div><div style={{ fontSize: 10, color: Z.d }}>{s.id}</div></div>
+                                <span style={{ fontSize: 10, color: ac }}>✏️</span>
+                              </div>
+                            ))}
+                          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                            <Btn onClick={() => { startC("student"); setFd(p => ({ ...p, cls: c })); }} color={ac} s={{ fontSize: 10, padding: "8px 14px" }}>+ Élève ici</Btn>
+                            {si.length === 0 && <Btn onClick={() => delCls(c)} outline color={Z.r} s={{ fontSize: 10, padding: "8px 14px" }}>🗑️</Btn>}
+                          </div>
+                        </div>
+                      )}
+                    </Cd>
+                  );
+                })}
+                {msg && <div style={{ marginTop: 10, padding: 10, borderRadius: 8, background: (msg.startsWith("✅") || msg.startsWith("🗑") ? Z.g : Z.r) + "0c", fontSize: 12, color: msg.startsWith("✅") || msg.startsWith("🗑") ? Z.g : Z.r }}>{msg}</div>}
+              </>
+            )}
+
+            {/* USERS */}
+            {tab === "users" && (
+              <>
+                <div style={{ fontSize: 14, fontWeight: 800, fontFamily: FD, marginBottom: 10 }}>👥 Utilisateurs ({all.length})</div>
+                <input value={sr} onChange={e => setSr(e.target.value)} placeholder="🔍 Rechercher..." style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid " + Z.bd, background: "rgba(255,255,255,0.03)", color: Z.w, fontSize: 12, outline: "none", boxSizing: "border-box", marginBottom: 10 }} />
+                <div style={{ display: "flex", gap: 5, marginBottom: 14, flexWrap: "wrap" }}>
+                  {[{ v: "all", l: "Tous" }, { v: "student", l: "Élèves" }, { v: "parent", l: "Parents" }, { v: "teacher", l: "Profs" }, { v: "admin", l: "Admins" }].map(f => (
+                    <button key={f.v} onClick={() => setFR(f.v)} style={{ padding: "6px 14px", borderRadius: 20, border: "1px solid " + (fR === f.v ? ac : Z.bd), background: fR === f.v ? ac + "18" : "transparent", color: fR === f.v ? ac : Z.m, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>{f.l} ({f.v === "all" ? all.length : all.filter(u => u.role === f.v).length})</button>
+                  ))}
+                </div>
+                {flt.map(u => (
+                  <Cd key={u.id} onClick={() => startE(u)} s={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 10, padding: 13 }}>
+                    <div style={{ width: 38, height: 38, borderRadius: 10, background: rC(u.role) + "18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17 }}>{rI(u.role)}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700 }}>{u.name}</div>
+                      <div style={{ fontSize: 10, color: Z.d }}>{u.id} • {rL(u.role)}{u.cls ? " • " + u.cls : ""}{u.subject ? " • " + u.subject : ""}</div>
+                    </div>
+                    <span style={{ fontSize: 12, color: ac }}>✏️</span>
+                  </Cd>
+                ))}
+              </>
+            )}
+
+            {/* CREATE */}
+            {tab === "create" && (
+              <>
+                <div style={{ fontSize: 14, fontWeight: 800, fontFamily: FD, marginBottom: 14 }}>➕ Créer</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  {[{ r: "student", i: "🎓", l: "Élève", d: "Classe *", c: Z.b }, { r: "parent", i: "👨‍👩‍👧", l: "Parent", d: "Lié enfants", c: Z.p }, { r: "teacher", i: "📚", l: "Enseignant", d: "Matière+classes *", c: Z.a }, { r: "admin", i: "🏫", l: "Admin", d: "Gestion", c: ac }].map(r => (
+                    <Cd key={r.r} onClick={() => startC(r.r)} s={{ textAlign: "center", padding: 18, background: r.c + "08", border: "1px solid " + r.c + "18" }}>
+                      <div style={{ fontSize: 30, marginBottom: 6 }}>{r.i}</div>
+                      <div style={{ fontSize: 13, fontWeight: 800 }}>{r.l}</div>
+                      <div style={{ fontSize: 10, color: Z.m, marginTop: 4 }}>{r.d}</div>
+                    </Cd>
+                  ))}
+                </div>
+                <Cd s={{ marginTop: 14 }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 8 }}>📋 Ordre</div>
+                  {["1. Classes (onglet Classes)", "2. Élèves (classe *)", "3. Parents (lier enfants)", "4. Enseignants (matière + classes *)", "5. Comptes utilisables IMMÉDIATEMENT"].map((s, i) => (
+                    <div key={i} style={{ fontSize: 11, color: Z.m, padding: "4px 0" }}>{s}</div>
+                  ))}
+                </Cd>
+              </>
+            )}
+          </>
+        )}
+      </div>
+      <Nv tabs={tabs} act={tab} onT={t => { setTab(t); setCM(null); setEI(null); setMsg(""); setCD(null); setSC(null); setVS(null); }} ac={ac} />
+    </div>
+  );
+};
+
+// ═══ LOGIN ═══
+const LoginP = ({ db, onIn }) => {
+  const [uid, setU] = useState("");
+  const [pw, setP] = useState("");
+  const [err, setE] = useState("");
+  const total = Object.keys(db.users).length;
+
+  const go = () => {
+    const u = db.users[uid.toUpperCase()];
+    if (!u || u.pw !== pw) { setE("❌ Identifiant ou mot de passe incorrect"); return; }
+    onIn({ ...u, uid: uid.toUpperCase() });
+  };
+
+  return (
+    <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, background: "radial-gradient(ellipse at 25% 15%,#1a1000 0%," + Z.bg + " 65%)" }}>
+      <div style={{ width: 76, height: 76, borderRadius: 20, margin: "0 auto 20px", background: "linear-gradient(135deg," + BC + ",#b8860b)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 38, boxShadow: "0 12px 40px " + BC + "30" }}>{BI}</div>
+      <h1 style={{ fontFamily: FD, fontSize: 24, fontWeight: 700, margin: "0 0 4px", color: BC }}>{BR}</h1>
+      <p style={{ fontSize: 12, color: Z.m, margin: "0 0 2px" }}>Révision Intelligente</p>
+      <p style={{ fontSize: 10, color: Z.d, margin: "0 0 24px", letterSpacing: 2, textTransform: "uppercase" }}>Djibouti • KG → Terminale</p>
+      <div style={{ width: "100%", maxWidth: 340 }}>
+        <Inp label="IDENTIFIANT" value={uid} onChange={v => { setU(v); setE(""); }} ph="Votre ID" />
+        <div onKeyDown={e => { if (e.key === "Enter") go(); }}>
+          <Inp label="MOT DE PASSE" value={pw} onChange={v => { setP(v); setE(""); }} type="password" ph="Mot de passe" />
+        </div>
+        {err && <p style={{ color: Z.r, fontSize: 12, margin: "-4px 0 8px" }}>{err}</p>}
+        <Btn onClick={go} color={BC} full>Se connecter</Btn>
+        <div style={{ textAlign: "center", marginTop: 12, fontSize: 10, color: Z.d }}>{total} utilisateur(s)</div>
+        {total <= 1 && (
+          <Cd s={{ marginTop: 14, padding: 14, background: Z.a + "08", border: "1px solid " + Z.a + "18" }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: Z.a, marginBottom: 6 }}>🏁 Premier démarrage</div>
+            <div style={{ fontSize: 11, color: Z.m }}>Connectez-vous Admin pour configurer :</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: Z.w, marginTop: 6, fontFamily: "monospace" }}>ID: ADM001 • MDP: admin2026</div>
+          </Cd>
+        )}
+        {!getApiKey() && (
+          <Cd s={{ marginTop: 10, padding: 14, background: Z.r + "08", border: "1px solid " + Z.r + "18" }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: Z.r }}>⚠️ Clé API non configurée</div>
+            <div style={{ fontSize: 10, color: Z.m, marginTop: 4 }}>Connectez-vous Admin → ⚙️ Configuration API</div>
+          </Cd>
+        )}
+        {getApiKey() && (
+          <Cd s={{ marginTop: 10, padding: 10 }}>
+            <div style={{ fontSize: 11, color: Z.g, fontWeight: 700 }}>🟢 API configurée — Prêt</div>
+          </Cd>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ═══ MAIN ═══
+function App() {
+  const [db, _setDB] = useState(loadDB);
+  const [cur, setCur] = useState(null);
+
+  const setDB = useCallback((updater) => {
+    _setDB(prev => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      saveDB(next);
+      return next;
+    });
+  }, []);
+
+  const out = () => setCur(null);
+
+  if (!cur) return <LoginP db={db} onIn={setCur} />;
+  if (cur.role === "student") return <StudentP user={cur} onOut={out} />;
+  if (cur.role === "parent") return <ParentP user={cur} db={db} onOut={out} />;
+  if (cur.role === "teacher") return <TeacherP user={cur} db={db} setDB={setDB} onOut={out} />;
+  if (cur.role === "admin") return <AdminP user={cur} db={db} setDB={setDB} onOut={out} />;
+  return null;
+}
+
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
