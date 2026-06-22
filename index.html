@@ -5,22 +5,24 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="theme-color" content="#060b16"/>
-<title>École Champion — Révision Intelligente</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>"/>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet"/>
+<title>ÉcoleAI ERP & LMS — Système de Gestion Scolaire Intelligent</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎓</text></svg>"/>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet"/>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body,#root{min-height:100vh;min-height:100dvh;background:#060b16;color:#fff;font-family:'Outfit',sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
-input,select,button{font-family:inherit}
-select option{background:#111;color:#fff}
-::-webkit-scrollbar{width:3px}
+input,select,textarea,button{font-family:inherit}
+select option{background:#111827;color:#fff}
+::-webkit-scrollbar{width:3px;height:3px}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:4px}
-@keyframes fu{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-@keyframes blink{0%%,100%%{opacity:1}50%%{opacity:.4}}
-.fu{animation:fu .3s ease both}
-.blink{animation:blink 1s ease infinite}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.fu{animation:fadeUp .3s ease both}
+.blink{animation:blink 1.2s ease infinite}
+.spin{animation:spin 1s linear infinite;display:inline-block}
 </style>
-<script>(function(){var o=console.warn;console.warn=function(){if(arguments[0]&&typeof arguments[0]==="string"&&arguments[0].indexOf("in-browser Babel")>-1)return;o.apply(console,arguments);};})()</script>
 </head>
 <body>
 <div id="root"></div>
@@ -28,950 +30,1648 @@ select option{background:#111;color:#fff}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
 <script type="text/babel" data-type="module">
-const { useState, useMemo, useEffect, useRef, useCallback } = React;
+const { useState, useMemo, useEffect, useRef, useCallback, Fragment } = React;
 
-// ═══ THEME ═══
-const Z = {
-  bg: "#060b16", c: "rgba(255,255,255,0.03)", bd: "rgba(255,255,255,0.06)",
-  w: "#fff", m: "rgba(255,255,255,0.42)", d: "rgba(255,255,255,0.25)",
-  g: "#22c55e", r: "#ef4444", a: "#f59e0b", b: "#0ea5e9", p: "#a855f7", t: "#14b8a6"
+// ═══════════════════════════════════════════
+// THEME & CONSTANTS
+// ═══════════════════════════════════════════
+const C = {
+  bg: "#060b16", card: "rgba(255,255,255,0.03)", border: "rgba(255,255,255,0.08)",
+  w: "#fff", m: "rgba(255,255,255,0.45)", d: "rgba(255,255,255,0.25)",
+  primary: "#6366f1", gold: "#d4a017", green: "#22c55e", red: "#ef4444",
+  amber: "#f59e0b", blue: "#0ea5e9", purple: "#a855f7", teal: "#14b8a6",
+  pink: "#ec4899", orange: "#f97316", indigo: "#6366f1"
 };
+const BRAND = "ÉcoleAI ERP & LMS";
+const BRAND_SHORT = "ÉcoleAI";
+const ICON = "🎓";
 const FD = "'Libre Baskerville',Georgia,serif";
-const BR = "École Champion", BI = "🏆", BC = "#d4a017";
+const DB_KEY = "ecoleai_v2";
+const API_KEY_K = "ecoleai_api_key";
 
-// ═══ PERSISTENCE ═══
-const SK = "ecole_champion_v4";
-const defDB = {
-  users: { ADM001: { pw: "admin2026", role: "admin", name: "Directeur Général" } },
-  classes: ["Maternelle GS","CP","CE1","CE2","CM1","CM2","6ème A","6ème B","5ème A","5ème B","4ème A","4ème B","3ème A","3ème B","2nde A","1ère A","Tle A"],
-  chapters: {}
+// ═══════════════════════════════════════════
+// CURRICULUM
+// ═══════════════════════════════════════════
+const CUR = {
+  "Maternelle":{ s:["Éveil","Graphisme","Comptage","Langage oral","Motricité"], d:"Maternelle" },
+  "CP":{ s:["Lecture","Écriture","Mathématiques","Arabe"], d:"CP" },
+  "CE1":{ s:["Français","Mathématiques","Découverte du monde","Arabe","EPS"], d:"CE1" },
+  "CE2":{ s:["Français","Mathématiques","Sciences","Histoire-Géo","Arabe","EPS"], d:"CE2" },
+  "CM1":{ s:["Français","Mathématiques","Sciences","Histoire-Géo","Arabe","Anglais","EPS"], d:"CM1" },
+  "CM2":{ s:["Français","Mathématiques","Sciences","Histoire-Géo","Arabe","Anglais","Éducation civique","EPS"], d:"CM2" },
+  "6ème":{ s:["Français","Mathématiques","SVT","Physique-Chimie","Histoire-Géo","Arabe","Anglais","EPS"], d:"6ème" },
+  "5ème":{ s:["Français","Mathématiques","SVT","Physique-Chimie","Histoire-Géo","Arabe","Anglais","Technologie","EPS"], d:"5ème" },
+  "4ème":{ s:["Français","Mathématiques","SVT","Physique-Chimie","Histoire-Géo","Arabe","Anglais","Technologie","EPS"], d:"4ème" },
+  "3ème":{ s:["Français","Mathématiques","SVT","Physique-Chimie","Histoire-Géo","Arabe","Anglais","Technologie","Éducation civique","EPS"], d:"3ème (Brevet)" },
+  "2nde":{ s:["Français","Mathématiques","SVT","Physique-Chimie","Histoire-Géo","Arabe","Anglais","SES","EPS"], d:"Seconde" },
+  "1ère":{ s:["Français","Mathématiques","Histoire-Géo","Arabe","Anglais","Philosophie","EPS"], d:"Première" },
+  "Terminale":{ s:["Philosophie","Mathématiques","Histoire-Géo","Arabe","Anglais","EPS"], d:"Terminale (Bac)" }
+};
+const c2l = cls => {
+  if (!cls) return "6ème";
+  if (/Maternelle|GS|KG|Petite|Moyenne|Grande/i.test(cls)) return "Maternelle";
+  if (/^CP\b/.test(cls)) return "CP";
+  if (/CE1/.test(cls)) return "CE1";
+  if (/CE2/.test(cls)) return "CE2";
+  if (/CM1/.test(cls)) return "CM1";
+  if (/CM2/.test(cls)) return "CM2";
+  if (/6/.test(cls)) return "6ème";
+  if (/5/.test(cls)) return "5ème";
+  if (/4/.test(cls)) return "4ème";
+  if (/3/.test(cls)) return "3ème";
+  if (/2nde|Seconde/.test(cls)) return "2nde";
+  if (/1ère|Première/.test(cls)) return "1ère";
+  if (/Tle|Terminal/.test(cls)) return "Terminale";
+  return "6ème";
+};
+const DEF_CHAPTERS = {
+  "Mathématiques":["Nombres et calculs","Algèbre","Géométrie","Statistiques","Fonctions","Mesures"],
+  "Français":["Grammaire","Conjugaison","Orthographe","Vocabulaire","Rédaction","Lecture"],
+  "Sciences":["Le vivant","La matière","L'énergie","La Terre"],
+  "SVT":["La cellule","Nutrition","Reproduction","Écosystèmes","Génétique"],
+  "Physique-Chimie":["Électricité","Mécanique","Optique","Chimie"],
+  "Histoire-Géo":["Histoire de Djibouti","Afrique","Géographie physique","Monde contemporain"],
+  "Anglais":["Grammar","Vocabulary","Reading","Writing","Speaking"],
+  "Arabe":["النحو","الصرف","التعبير","القراءة","المحادثة"],
+  "Philosophie":["La conscience","La liberté","Le devoir","La vérité","L'État"],
+  "EPS":["Athlétisme","Sports collectifs","Gymnastique"],
+  "SES":["Économie","Sociologie","Science politique"],
+  "Technologie":["Informatique","Électronique","Programmation"],
+  "Éducation civique":["Citoyenneté","Droits et devoirs","Institutions"],
+  "Éveil":["Découverte","Les animaux","Mon corps"],
+  "Graphisme":["Les formes","Tracer","Écrire"],
+  "Comptage":["1 à 10","1 à 20","Formes géo"],
+  "Langage oral":["Se présenter","Raconter","Vocabulaire"],
+  "Motricité":["Courir","Sauter","Équilibre"],
+  "Lecture":["L'alphabet","Les syllabes","Lire des mots"],
+  "Écriture":["Les lettres","Les mots","Les phrases"],
+  "Découverte du monde":["Les saisons","Les animaux","L'eau"]
+};
+const SUB_LIST = ["Mathématiques","Français","Sciences","Histoire-Géo","Anglais","Arabe","Physique-Chimie","SVT","Philosophie","EPS","SES","Technologie","Éducation civique","Éveil","Graphisme","Comptage","Langage oral","Motricité","Lecture","Écriture","Découverte du monde"];
+const getChapters = (db, cls, subj) => {
+  const k = cls+"::"+subj;
+  return (db.chapters[k] && db.chapters[k].length) ? db.chapters[k] : (DEF_CHAPTERS[subj] || ["Chapitre 1","Chapitre 2","Chapitre 3"]);
 };
 
+// ═══════════════════════════════════════════
+// DATA LAYER
+// ═══════════════════════════════════════════
+const DEF_DB = {
+  users: { ADM001:{ pw:"admin2026", role:"admin", name:"Directeur Général" } },
+  classes: ["Maternelle GS","CP","CE1","CE2","CM1","CM2","6ème A","6ème B","5ème A","5ème B","4ème A","4ème B","3ème A","3ème B","2nde A","1ère A","Tle A"],
+  chapters: {}, materials: {}, grades: {}, attendance: {},
+  finance: {}, announcements: [], schoolName: "Nouvelle École Champion", year: "2025-2026"
+};
 const loadDB = () => {
   try {
-    const raw = window.localStorage?.getItem(SK);
-    if (raw) {
-      const p = JSON.parse(raw);
-      if (p.users && p.classes) {
+    const r = localStorage.getItem(DB_KEY);
+    if (r) {
+      const p = JSON.parse(r);
+      if (p.users) {
         if (!p.chapters) p.chapters = {};
-        if (!Object.values(p.users).some(u => u.role === "admin")) {
-          p.users.ADM001 = defDB.users.ADM001;
-        }
+        if (!p.materials) p.materials = {};
+        if (!p.grades) p.grades = {};
+        if (!p.attendance) p.attendance = {};
+        if (!p.finance) p.finance = {};
+        if (!p.announcements) p.announcements = [];
+        if (!p.schoolName) p.schoolName = "Nouvelle École Champion";
+        if (!p.year) p.year = "2025-2026";
+        if (!Object.values(p.users).some(u=>u.role==="admin")) p.users.ADM001 = DEF_DB.users.ADM001;
         return p;
       }
     }
-  } catch (e) { /* ignore */ }
-  return JSON.parse(JSON.stringify(defDB));
+  } catch(e){}
+  return JSON.parse(JSON.stringify(DEF_DB));
 };
+const saveDB = db => { try { localStorage.setItem(DB_KEY, JSON.stringify(db)); } catch(e){} };
+const getApiKey = () => { try { return localStorage.getItem(API_KEY_K)||""; } catch(e){return "";} };
+const setApiKey = k => { try { localStorage.setItem(API_KEY_K, k); } catch(e){} };
 
-const saveDB = (db) => {
-  try { window.localStorage?.setItem(SK, JSON.stringify(db)); } catch (e) { /* ignore */ }
-};
-
-// ═══ CURRICULUM ═══
-const CUR = {
-  "Maternelle": { s: ["Éveil","Graphisme","Comptage","Langage oral","Motricité"], d: "Maternelle" },
-  "CP": { s: ["Lecture","Écriture","Mathématiques","Arabe"], d: "CP" },
-  "CE1": { s: ["Français","Mathématiques","Découverte du monde","Arabe","EPS"], d: "CE1" },
-  "CE2": { s: ["Français","Mathématiques","Sciences","Histoire-Géo","Arabe","EPS"], d: "CE2" },
-  "CM1": { s: ["Français","Mathématiques","Sciences","Histoire-Géo","Arabe","Anglais","EPS"], d: "CM1" },
-  "CM2": { s: ["Français","Mathématiques","Sciences","Histoire-Géo","Arabe","Anglais","Éducation civique","EPS"], d: "CM2" },
-  "6ème": { s: ["Français","Mathématiques","SVT","Physique-Chimie","Histoire-Géo","Arabe","Anglais","EPS"], d: "6ème" },
-  "5ème": { s: ["Français","Mathématiques","SVT","Physique-Chimie","Histoire-Géo","Arabe","Anglais","Technologie","EPS"], d: "5ème" },
-  "4ème": { s: ["Français","Mathématiques","SVT","Physique-Chimie","Histoire-Géo","Arabe","Anglais","Technologie","EPS"], d: "4ème" },
-  "3ème": { s: ["Français","Mathématiques","SVT","Physique-Chimie","Histoire-Géo","Arabe","Anglais","Technologie","Éducation civique","EPS"], d: "3ème (Brevet)" },
-  "2nde": { s: ["Français","Mathématiques","SVT","Physique-Chimie","Histoire-Géo","Arabe","Anglais","SES","EPS"], d: "Seconde" },
-  "1ère": { s: ["Français","Mathématiques","Histoire-Géo","Arabe","Anglais","Philosophie","EPS"], d: "Première" },
-  "Terminale": { s: ["Philosophie","Mathématiques","Histoire-Géo","Arabe","Anglais","EPS"], d: "Terminale (Bac)" }
-};
-const c2l = (cls) => {
-  if (!cls) return "3ème";
-  if (/Maternelle|GS|KG/i.test(cls)) return "Maternelle";
-  for (const l of Object.keys(CUR)) { if (cls.includes(l)) return l; }
-  return "3ème";
-};
-const SUB_LIST = ["Mathématiques","Français","Sciences","Histoire-Géo","Anglais","Arabe","Physique-Chimie","SVT","Philosophie","EPS","SES","Technologie","Éducation civique"];
-
-// Default chapters per subject
-const DEFAULT_CHAPTERS = {
-  "Mathématiques": ["Nombres et calculs","Algèbre","Géométrie","Statistiques et probabilités","Fonctions","Mesures et grandeurs"],
-  "Français": ["Grammaire","Conjugaison","Orthographe","Vocabulaire","Rédaction","Lecture et compréhension","Littérature"],
-  "Sciences": ["Le vivant","La matière","L'énergie","La Terre","Technologie"],
-  "SVT": ["La cellule","Nutrition","Reproduction","Écosystèmes","Génétique","Géologie"],
-  "Physique-Chimie": ["Électricité","Mécanique","Optique","Chimie des solutions","Atomes et molécules"],
-  "Histoire-Géo": ["Histoire de Djibouti","Afrique contemporaine","Géographie physique","Géographie humaine","Monde contemporain"],
-  "Anglais": ["Grammar","Vocabulary","Reading","Writing","Listening","Speaking"],
-  "Arabe": ["النحو (Grammaire)","الصرف (Morphologie)","التعبير الكتابي (Expression écrite)","القراءة (Lecture)","المحادثة (Conversation)"],
-  "Philosophie": ["La conscience","La liberté","Le devoir","La vérité","L'État","La justice"],
-  "EPS": ["Athlétisme","Sports collectifs","Gymnastique","Natation"],
-  "SES": ["Économie","Sociologie","Science politique"],
-  "Technologie": ["Informatique","Électronique","Mécanique","Programmation"],
-  "Éducation civique": ["Citoyenneté","Droits et devoirs","Institutions","Démocratie"],
-  "Éveil": ["Découverte du monde","Les animaux","Les plantes","Mon corps"],
-  "Graphisme": ["Tracer des lignes","Les formes","Écrire son prénom"],
-  "Comptage": ["Compter jusqu'à 10","Compter jusqu'à 20","Les formes géométriques"],
-  "Langage oral": ["Se présenter","Raconter une histoire","Vocabulaire quotidien"],
-  "Motricité": ["Courir","Sauter","Lancer","Équilibre"],
-  "Lecture": ["L'alphabet","Les syllabes","Lire des mots","Lire des phrases"],
-  "Écriture": ["Les lettres","Les mots","Copier","Écrire des phrases"],
-  "Découverte du monde": ["Les saisons","Les animaux","Mon quartier","L'eau"],
-  "Rédaction": ["Le récit","La description","Le dialogue","L'argumentation"],
-  "Vocabulaire": ["Synonymes","Antonymes","Champ lexical","Expressions"],
-  "Littérature": ["Le roman","La poésie","Le théâtre","La nouvelle"]
-};
-
-const getChaptersForSubject = (db, cls, subject) => {
-  const key = cls + "::" + subject;
-  if (db.chapters[key] && db.chapters[key].length > 0) return db.chapters[key];
-  return DEFAULT_CHAPTERS[subject] || ["Chapitre 1","Chapitre 2","Chapitre 3"];
-};
-
-// ═══ AI ═══
-const buildSys = (u, mode) => {
-  const lv = c2l(u.cls);
-  const cur = CUR[lv];
-  return `Tu es "${BR}", système pédagogique d'une école d'excellence à Djibouti. JAMAIS dire "IA" ou "intelligence artificielle". Tu es ${BR}.\nÉLÈVE: ${u.name} | ${u.cls} | ${lv} | Matières: ${(cur?.s || []).join(", ")}\nMODE: ${mode}\nAPRÈS CHAQUE réponse quiz: ✅ ou ❌ IMMÉDIATEMENT. FAUX=corriger+NOUVELLE question MÊME niveau. JUSTE=niveau supérieur.\nFormat quiz:\n[QUIZ]\nQ: question\nA) opt1\nB) opt2\nC) opt3\nD) opt4\nCORRECT: B\nEXPLICATION: explication\n[/QUIZ]\nSalue au nom de ${BR}.`;
-};
-
-// API Key management
-const getApiKey = () => {
-  try { return localStorage.getItem("ecole_champion_api_key") || ""; } catch(e) { return ""; }
-};
-const setApiKey = (k) => {
-  try { localStorage.setItem("ecole_champion_api_key", k); } catch(e) {}
-};
-
-const callAPI = async (msgs, sys) => {
+// ═══════════════════════════════════════════
+// AI API
+// ═══════════════════════════════════════════
+const callAI = async (messages, system, maxTokens=1500) => {
   const key = getApiKey();
-  if (!key) return "⚠️ Clé API non configurée. Allez dans Admin → ⚙️ pour la configurer.";
+  if (!key) return "⚠️ Clé API non configurée. Allez dans Admin → Paramètres.";
   try {
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true"
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514", max_tokens: 1500, system: sys,
-        messages: msgs.map(m => ({ role: m.r === "school" ? "assistant" : "user", content: m.t }))
-      })
+    const r = await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:maxTokens, system, messages })
     });
     const d = await r.json();
-    if (d.content && d.content[0]) return d.content[0].text;
-    if (d.error) {
-      if (d.error.message && d.error.message.includes("invalid x-api-key"))
-        return "❌ Clé API invalide. Vérifiez votre clé dans Admin → ⚙️.";
-      return "Erreur: " + d.error.message;
-    }
+    if (d.content?.[0]) return d.content[0].text;
+    if (d.error) return "❌ "+d.error.message;
     return "Service indisponible.";
-  } catch (e) {
-    return "Erreur de connexion: " + e.message + ". Vérifiez votre internet.";
-  }
+  } catch(e) { return "❌ Erreur réseau: "+e.message; }
 };
 
-const parseQ = (t) => {
-  const qs = [];
-  const rx = /\[QUIZ\]([\s\S]*?)\[\/QUIZ\]/g;
-  let m;
-  while ((m = rx.exec(t)) !== null) {
-    const b = m[1];
-    const qM = b.match(/Q:\s*(.+)/);
-    const os = [];
-    for (const l of ["A","B","C","D"]) {
-      const o = b.match(new RegExp(l + "\\)\\s*(.+)"));
-      if (o) os.push(o[1].trim());
-    }
-    const cM = b.match(/CORRECT:\s*([A-D])/);
-    const eM = b.match(/EXPLICATION:\s*([\s\S]+?)$/m);
-    if (qM && os.length >= 2 && cM) {
-      qs.push({ q: qM[1].trim(), os, c: "ABCD".indexOf(cM[1]), ex: eM ? eM[1].trim() : "" });
-    }
+// ═══════════════════════════════════════════
+// ID GENERATOR
+// ═══════════════════════════════════════════
+const genId = (users, role) => {
+  const p = role==="student"?"ECE":role==="parent"?"PAR":role==="teacher"?"PROF":"ADM";
+  let n=1; while(users[p+String(n).padStart(3,"0")]) n++;
+  return p+String(n).padStart(3,"0");
+};
+
+// ═══════════════════════════════════════════
+// QUIZ PARSER
+// ═══════════════════════════════════════════
+const parseQuiz = t => {
+  const qs=[]; const rx=/\[QUIZ\]([\s\S]*?)\[\/QUIZ\]/g; let m;
+  while((m=rx.exec(t))!==null){
+    const b=m[1];
+    const qM=b.match(/Q:\s*(.+)/); const os=[];
+    for(const l of ["A","B","C","D"]){ const o=b.match(new RegExp(l+"\\)\\s*(.+)")); if(o) os.push(o[1].trim()); }
+    const cM=b.match(/CORRECT:\s*([A-D])/); const eM=b.match(/EXPLICATION:\s*([\s\S]+?)$/m);
+    if(qM&&os.length>=2&&cM) qs.push({q:qM[1].trim(),os,c:"ABCD".indexOf(cM[1]),ex:eM?eM[1].trim():""});
   }
   return qs;
 };
 
-const renderMd = (t) => {
-  if (!t) return null;
-  return t.replace(/\[QUIZ\][\s\S]*?\[\/QUIZ\]/g, "").trim().split("\n").map((l, i) => {
-    if (!l.trim()) return <div key={i} style={{ height: 5 }} />;
-    let h = l.replace(/\*\*(.+?)\*\*/g, '<strong style="color:#fff">$1</strong>');
-    h = h.replace(/\*(.+?)\*/g, '<em style="color:' + BC + '">$1</em>');
-    if (l.startsWith("### ")) return <div key={i} style={{ fontSize: 13, fontWeight: 800, color: BC, margin: "8px 0 4px" }}>{l.slice(4)}</div>;
-    if (l.startsWith("## ")) return <div key={i} style={{ fontSize: 14, fontWeight: 800, margin: "8px 0 4px" }}>{l.slice(3)}</div>;
-    if (l.startsWith("- ") || l.startsWith("• ")) return <div key={i} style={{ paddingLeft: 10, fontSize: 12, color: "rgba(255,255,255,0.7)", lineHeight: 1.7 }}>• {l.slice(2)}</div>;
-    if (l.startsWith("> ")) return <div key={i} style={{ borderLeft: "3px solid " + BC, paddingLeft: 10, margin: "4px 0", fontSize: 12, color: "rgba(255,255,255,0.65)" }}>{l.slice(2)}</div>;
-    return <p key={i} style={{ fontSize: 12, color: "rgba(255,255,255,0.75)", lineHeight: 1.7, margin: "2px 0" }} dangerouslySetInnerHTML={{ __html: h }} />;
+// ═══════════════════════════════════════════
+// MARKDOWN RENDERER
+// ═══════════════════════════════════════════
+const renderMd = t => {
+  if(!t) return null;
+  return t.replace(/\[QUIZ\][\s\S]*?\[\/QUIZ\]/g,"").trim().split("\n").map((l,i)=>{
+    if(!l.trim()) return React.createElement("div",{key:i,style:{height:4}});
+    let h=l.replace(/\*\*(.+?)\*\*/g,'<strong style="color:#fff">$1</strong>');
+    h=h.replace(/\*(.+?)\*/g,'<em style="color:'+C.gold+'">$1</em>');
+    if(l.startsWith("### ")) return React.createElement("div",{key:i,style:{fontSize:13,fontWeight:800,color:C.gold,margin:"8px 0 3px"}},l.slice(4));
+    if(l.startsWith("## ")) return React.createElement("div",{key:i,style:{fontSize:14,fontWeight:800,margin:"8px 0 3px"}},l.slice(3));
+    if(l.startsWith("# ")) return React.createElement("div",{key:i,style:{fontSize:15,fontWeight:800,fontFamily:FD,margin:"10px 0 4px"}},l.slice(2));
+    if(l.startsWith("- ")||l.startsWith("• ")||l.startsWith("* ")) return React.createElement("div",{key:i,style:{paddingLeft:12,fontSize:12,color:"rgba(255,255,255,0.7)",lineHeight:1.7}},"• "+l.slice(2));
+    if(l.startsWith("> ")) return React.createElement("div",{key:i,style:{borderLeft:"3px solid "+C.gold,paddingLeft:10,margin:"4px 0",fontSize:12,color:"rgba(255,255,255,0.6)"}},l.slice(2));
+    if(/^\d+\./.test(l)) return React.createElement("div",{key:i,style:{paddingLeft:12,fontSize:12,color:"rgba(255,255,255,0.75)",lineHeight:1.7}},l);
+    return React.createElement("p",{key:i,style:{fontSize:12,color:"rgba(255,255,255,0.72)",lineHeight:1.75,margin:"2px 0"},dangerouslySetInnerHTML:{__html:h}});
   });
 };
 
-// ═══ MODES ═══
-const MODES = [
-  { id: "chat", ic: "💬", n: "DISCUSSION", d: "Pose tes questions", cl: Z.b },
-  { id: "setup", ic: "⚙️", n: "DIAGNOSTIC", d: "Évalue ton niveau", cl: "#6366f1" },
-  { id: "learn", ic: "📖", n: "COURS", d: "Leçons expliquées", cl: Z.g },
-  { id: "quiz", ic: "❓", n: "QUIZ", d: "Questions adaptées", cl: Z.a },
-  { id: "spaced", ic: "🔄", n: "RÉVISION", d: "Répétition espacée", cl: Z.p },
-  { id: "visual", ic: "🗺️", n: "CARTES", d: "Résumés visuels", cl: "#ec4899" },
-  { id: "research", ic: "🔍", n: "RECHERCHE", d: "Méthode socratique", cl: Z.t },
-  { id: "plan", ic: "📋", n: "PLANNING", d: "Plan sur mesure", cl: "#f97316" },
-  { id: "export", ic: "📤", n: "FICHES", d: "Fiches à garder", cl: "#8b5cf6" }
-];
-
-// ═══ UI ═══
-const st = { card: (extra = {}) => ({ padding: 16, borderRadius: 14, background: Z.c, border: "1px solid " + Z.bd, ...extra }) };
-const Cd = ({ children, s, onClick }) => <div onClick={onClick} style={{ ...st.card(s), cursor: onClick ? "pointer" : "default" }}>{children}</div>;
-const Btn = ({ children, color = Z.b, onClick, full, outline, s = {} }) => (
-  <button onClick={onClick} style={{ padding: "12px 22px", borderRadius: 10, border: outline ? "1px solid " + color + "30" : "none", background: outline ? "transparent" : color, color: outline ? color : Z.w, fontSize: 13, fontWeight: 800, cursor: "pointer", width: full ? "100%" : "auto", boxShadow: outline ? "none" : "0 4px 16px " + color + "25", ...s }}>{children}</button>
+// ═══════════════════════════════════════════
+// UI PRIMITIVES
+// ═══════════════════════════════════════════
+const Card = ({children,s={},onClick}) => (
+  <div onClick={onClick} style={{padding:16,borderRadius:14,background:C.card,border:"1px solid "+C.border,cursor:onClick?"pointer":"default",...s}}>{children}</div>
 );
-const Inp = ({ label, value, onChange, type = "text", ph = "", dis }) => (
-  <div style={{ marginBottom: 12 }}>
-    <label style={{ fontSize: 10, color: Z.m, fontWeight: 700, display: "block", marginBottom: 4 }}>{label}</label>
-    <input value={value} onChange={e => onChange(e.target.value)} type={type} placeholder={ph} disabled={dis}
-      style={{ width: "100%", padding: "11px 12px", borderRadius: 8, border: "1.5px solid " + Z.bd, background: "rgba(255,255,255,0.03)", color: dis ? Z.d : Z.w, fontSize: 13, outline: "none", boxSizing: "border-box", opacity: dis ? 0.5 : 1 }} />
+const Btn = ({children,color=C.primary,onClick,full,outline,s={},disabled}) => (
+  <button onClick={onClick} disabled={disabled} style={{padding:"11px 20px",borderRadius:10,border:outline?"1px solid "+color+"40":"none",background:outline?"transparent":color,color:outline?color:C.w,fontSize:13,fontWeight:700,cursor:disabled?"not-allowed":"pointer",width:full?"100%":"auto",opacity:disabled?0.5:1,boxShadow:outline?"none":"0 4px 14px "+color+"30",...s}}>{children}</button>
+);
+const Inp = ({label,value,onChange,type="text",ph="",dis,s={}}) => (
+  <div style={{marginBottom:12,...s}}>
+    {label&&<label style={{fontSize:10,color:C.m,fontWeight:700,display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:0.5}}>{label}</label>}
+    <input value={value} onChange={e=>onChange(e.target.value)} type={type} placeholder={ph} disabled={dis}
+      style={{width:"100%",padding:"11px 13px",borderRadius:9,border:"1.5px solid "+C.border,background:"rgba(255,255,255,0.04)",color:dis?C.d:C.w,fontSize:13,outline:"none",opacity:dis?0.5:1}}/>
   </div>
 );
-const Sel = ({ label, value, onChange, options }) => (
-  <div style={{ marginBottom: 12 }}>
-    <label style={{ fontSize: 10, color: Z.m, fontWeight: 700, display: "block", marginBottom: 4 }}>{label}</label>
-    <select value={value} onChange={e => onChange(e.target.value)} style={{ width: "100%", padding: "11px 12px", borderRadius: 8, border: "1.5px solid " + Z.bd, background: "rgba(255,255,255,0.03)", color: Z.w, fontSize: 13, outline: "none", boxSizing: "border-box" }}>
+const Sel = ({label,value,onChange,options}) => (
+  <div style={{marginBottom:12}}>
+    {label&&<label style={{fontSize:10,color:C.m,fontWeight:700,display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:0.5}}>{label}</label>}
+    <select value={value} onChange={e=>onChange(e.target.value)} style={{width:"100%",padding:"11px 13px",borderRadius:9,border:"1.5px solid "+C.border,background:"#0d1117",color:C.w,fontSize:13,outline:"none"}}>
       <option value="">— Sélectionner —</option>
-      {options.map(o => <option key={o} value={o}>{o}</option>)}
+      {options.map(o=><option key={o.v||o} value={o.v||o}>{o.l||o}</option>)}
     </select>
   </div>
 );
-const Hd = ({ t1, t2, onOut }) => (
-  <div style={{ padding: "12px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid " + Z.bd, background: "rgba(6,11,22,0.92)", backdropFilter: "blur(16px)", position: "sticky", top: 0, zIndex: 10 }}>
-    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-      <div style={{ width: 32, height: 32, borderRadius: 8, background: BC + "20", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{BI}</div>
-      <div>
-        <div style={{ fontFamily: FD, fontSize: 14, fontWeight: 700 }}>{t1}</div>
-        <div style={{ fontSize: 10, color: Z.m, marginTop: 1 }}>{t2}</div>
-      </div>
-    </div>
-    <button onClick={onOut} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid " + Z.r + "25", background: Z.r + "0c", color: Z.r, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>↩</button>
+const Textarea = ({label,value,onChange,ph="",rows=4}) => (
+  <div style={{marginBottom:12}}>
+    {label&&<label style={{fontSize:10,color:C.m,fontWeight:700,display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:0.5}}>{label}</label>}
+    <textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={ph} rows={rows}
+      style={{width:"100%",padding:"11px 13px",borderRadius:9,border:"1.5px solid "+C.border,background:"rgba(255,255,255,0.04)",color:C.w,fontSize:13,outline:"none",resize:"vertical"}}/>
   </div>
 );
-const Nv = ({ tabs, act, onT, ac }) => (
-  <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, display: "flex", background: "rgba(6,11,22,0.97)", backdropFilter: "blur(20px)", borderTop: "1px solid " + Z.bd, padding: "5px 0 16px", zIndex: 20 }}>
-    {tabs.map(t => (
-      <div key={t.id} onClick={() => onT(t.id)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, cursor: "pointer", paddingTop: 4 }}>
-        <span style={{ fontSize: 17, opacity: act === t.id ? 1 : 0.3 }}>{t.ic}</span>
-        <span style={{ fontSize: 8, fontWeight: 700, color: act === t.id ? ac : Z.m }}>{t.lb}</span>
-        {act === t.id && <div style={{ width: 12, height: 2.5, borderRadius: 2, background: ac }} />}
+const Header = ({t1,t2,onOut,extra}) => (
+  <div style={{padding:"12px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:"1px solid "+C.border,background:"rgba(6,11,22,0.95)",backdropFilter:"blur(16px)",position:"sticky",top:0,zIndex:10}}>
+    <div style={{display:"flex",alignItems:"center",gap:10}}>
+      <div style={{width:34,height:34,borderRadius:9,background:C.primary+"25",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>{ICON}</div>
+      <div><div style={{fontFamily:FD,fontSize:14,fontWeight:700}}>{t1}</div><div style={{fontSize:10,color:C.m,marginTop:1}}>{t2}</div></div>
+    </div>
+    <div style={{display:"flex",gap:8,alignItems:"center"}}>
+      {extra}
+      <button onClick={onOut} style={{padding:"6px 12px",borderRadius:8,border:"1px solid "+C.red+"30",background:C.red+"10",color:C.red,fontSize:11,fontWeight:700,cursor:"pointer"}}>↩ Déco</button>
+    </div>
+  </div>
+);
+const BottomNav = ({tabs,active,onTab,color=C.primary}) => (
+  <div style={{position:"fixed",bottom:0,left:0,right:0,display:"flex",background:"rgba(6,11,22,0.97)",backdropFilter:"blur(20px)",borderTop:"1px solid "+C.border,padding:"6px 0 18px",zIndex:20}}>
+    {tabs.map(t=>(
+      <div key={t.id} onClick={()=>onTab(t.id)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2,cursor:"pointer",paddingTop:4}}>
+        <span style={{fontSize:18,opacity:active===t.id?1:0.3}}>{t.ic}</span>
+        <span style={{fontSize:8,fontWeight:700,color:active===t.id?color:C.m}}>{t.lb}</span>
+        {active===t.id&&<div style={{width:14,height:2.5,borderRadius:2,background:color,marginTop:1}}/>}
       </div>
     ))}
   </div>
 );
+const Badge = ({children,color=C.primary}) => (
+  <span style={{padding:"2px 8px",borderRadius:10,background:color+"20",color,fontSize:10,fontWeight:700,border:"1px solid "+color+"30"}}>{children}</span>
+);
+const StatCard = ({icon,value,label,color=C.primary}) => (
+  <Card s={{padding:14,background:color+"0a",border:"1px solid "+color+"20",textAlign:"center"}}>
+    <div style={{fontSize:22,marginBottom:4}}>{icon}</div>
+    <div style={{fontSize:22,fontWeight:800,color}}>{value}</div>
+    <div style={{fontSize:10,color:C.m,marginTop:2}}>{label}</div>
+  </Card>
+);
+const Spinner = () => <span className="spin" style={{display:"inline-block",marginRight:6}}>⟳</span>;
 
-// ═══ QUIZ CARD ═══
-const QCard = ({ q, onA, done, si }) => {
-  const ok = done && si === q.c;
+// ═══════════════════════════════════════════
+// STUDENT AI TUTOR MODES
+// ═══════════════════════════════════════════
+const TUTOR_MODES = [
+  {id:"chat",ic:"💬",n:"DISCUSSION",d:"Pose tes questions",cl:C.blue},
+  {id:"learn",ic:"📖",n:"COURS",d:"Leçons expliquées",cl:C.green},
+  {id:"quiz",ic:"❓",n:"QUIZ",d:"Questions adaptées",cl:C.amber},
+  {id:"homework",ic:"📝",n:"DEVOIRS",d:"Aide aux devoirs",cl:C.orange},
+  {id:"revise",ic:"🔄",n:"RÉVISION",d:"Répétition espacée",cl:C.purple},
+  {id:"visual",ic:"🗺️",n:"CARTES",d:"Résumés visuels",cl:C.pink},
+  {id:"research",ic:"🔍",n:"RECHERCHE",d:"Méthode socratique",cl:C.teal},
+  {id:"plan",ic:"📋",n:"PLANNING",d:"Plan de révision",cl:C.orange},
+  {id:"exam",ic:"🏆",n:"EXAMEN",d:"Préparation examen",cl:C.gold}
+];
+
+// ═══════════════════════════════════════════
+// API KEY PANEL
+// ═══════════════════════════════════════════
+const ApiKeyPanel = () => {
+  const [k,setK] = useState(getApiKey());
+  const [show,setShow] = useState(false);
+  const [saved,setSaved] = useState(false);
+  const save = () => { setApiKey(k.trim()); setSaved(true); setTimeout(()=>setSaved(false),2000); };
   return (
-    <Cd s={{ marginTop: 10, padding: 16, background: done ? (ok ? Z.g + "08" : Z.r + "08") : Z.c, border: "1px solid " + (done ? (ok ? Z.g : Z.r) : Z.bd) + "18" }}>
-      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, lineHeight: 1.5 }}>{q.q}</div>
-      {q.os.map((o, i) => {
-        const isT = done && i === si;
-        const isR = done && i === q.c;
-        return (
-          <button key={i} onClick={() => !done && onA(i)} disabled={done}
-            style={{ display: "block", width: "100%", padding: "11px 14px", borderRadius: 10, textAlign: "left", fontSize: 12, fontWeight: 600, cursor: done ? "default" : "pointer", marginBottom: 5, border: "1.5px solid " + (isR ? Z.g : isT && !ok ? Z.r : Z.bd), background: isR ? Z.g + "15" : isT && !ok ? Z.r + "15" : Z.c, color: isR ? Z.g : isT && !ok ? Z.r : Z.w }}>
-            {"ABCD"[i]}) {o}{isR && done ? " ✅" : ""}{isT && !ok && done ? " ❌" : ""}
-          </button>
-        );
-      })}
-      {done && (
-        <div style={{ marginTop: 10, padding: 10, borderRadius: 8, background: (ok ? Z.g : Z.r) + "08", border: "1px solid " + (ok ? Z.g : Z.r) + "15" }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: ok ? Z.g : Z.r }}>{ok ? "✅ Correct !" : "❌ Pas tout à fait..."}</div>
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", lineHeight: 1.6, marginTop: 3 }}>{q.ex}</div>
-          {!ok && <div style={{ fontSize: 11, color: BC, marginTop: 6, fontWeight: 700 }}>{BI} {BR} prépare une question similaire...</div>}
-        </div>
-      )}
-    </Cd>
+    <Card s={{background:C.gold+"0a",border:"1px solid "+C.gold+"20",marginBottom:16}}>
+      <div style={{fontSize:13,fontWeight:800,marginBottom:8}}>⚙️ Clé API Claude (Anthropic)</div>
+      <p style={{fontSize:11,color:C.m,lineHeight:1.5,marginBottom:10}}>Obtenez votre clé sur <strong style={{color:C.w}}>console.anthropic.com</strong> pour activer l'IA.</p>
+      <div style={{display:"flex",gap:8,marginBottom:8}}>
+        <input value={k} onChange={e=>setK(e.target.value)} type={show?"text":"password"} placeholder="sk-ant-..."
+          style={{flex:1,padding:"10px 12px",borderRadius:8,border:"1.5px solid "+C.border,background:"rgba(255,255,255,0.04)",color:C.w,fontSize:12,outline:"none",fontFamily:"monospace"}}/>
+        <button onClick={()=>setShow(!show)} style={{padding:"0 10px",borderRadius:8,border:"1px solid "+C.border,background:C.card,cursor:"pointer"}}>{show?"🙈":"👁️"}</button>
+      </div>
+      <div style={{display:"flex",gap:8,alignItems:"center"}}>
+        <Btn onClick={save} color={C.gold} s={{fontSize:11,padding:"8px 16px"}}>💾 Sauvegarder</Btn>
+        {saved&&<span style={{fontSize:11,color:C.green}}>✅ Sauvegardée !</span>}
+        {k&&!saved&&<span style={{fontSize:11,color:C.green}}>🟢 Clé active</span>}
+      </div>
+    </Card>
   );
 };
 
-// ═══ CHAT ═══
-const Chat = ({ user, mode, onBack }) => {
-  const [msgs, setM] = useState([]);
-  const [inp, setI] = useState("");
-  const [ld, setLd] = useState(false);
-  const [qzs, setQz] = useState([]);
-  const [qA, setQA] = useState({});
-  const ref = useRef(null);
-  const mo = MODES.find(m => m.id === mode);
-  const sys = useMemo(() => buildSys(user, mo?.n || "DISCUSSION"), [user, mode]);
+// ═══════════════════════════════════════════
+// STUDENT PORTAL
+// ═══════════════════════════════════════════
+const StudentPortal = ({user, db, onOut}) => {
+  const [tab,setTab] = useState("home");
+  const [tutorMode,setTutorMode] = useState(null);
+  const [selSubj,setSelSubj] = useState(null);
   const lv = c2l(user.cls);
-  const cur = CUR[lv];
+  const cur = CUR[lv] || CUR["6ème"];
+  const allUsers = Object.entries(db.users).map(([id,u])=>({id,...u}));
 
-  useEffect(() => {
-    setLd(true);
-    callAPI([{ r: "user", t: "Bonjour, je suis " + user.name + " en " + user.cls + ". Mode " + (mo?.n || "") + "." }], sys)
-      .then(r => { setM([{ r: "school", t: r }]); setQz(parseQ(r)); setLd(false); });
-  }, []);
+  // Get grades for this student
+  const myGrades = {};
+  Object.entries(db.grades||{}).forEach(([k,v])=>{
+    if(v[user.uid]!==undefined){
+      const subj = k.split("::")[1]; myGrades[subj]=v[user.uid];
+    }
+  });
+  const gradesList = Object.entries(myGrades);
+  const avg = gradesList.length ? (gradesList.reduce((a,[,g])=>a+Number(g),0)/gradesList.length).toFixed(1) : null;
 
-  useEffect(() => {
-    if (ref.current) ref.current.scrollTo({ top: ref.current.scrollHeight, behavior: "smooth" });
-  }, [msgs, ld, qzs]);
+  // Attendance for this student
+  const myAttendance = Object.entries(db.attendance||{}).filter(([k])=>k.startsWith(user.cls+"::")).map(([,v])=>v[user.uid]);
+  const presentCount = myAttendance.filter(s=>s==="present").length;
+  const attRate = myAttendance.length ? Math.round(presentCount/myAttendance.length*100) : null;
 
-  const send = async (custom) => {
-    const txt = custom || inp.trim();
-    if (!txt || ld) return;
-    if (!custom) setI("");
-    const nm = [...msgs, { r: "user", t: txt }];
-    setM(nm); setQz([]); setQA({}); setLd(true);
-    const r = await callAPI(nm.slice(-20), sys);
-    setM(p => [...p, { r: "school", t: r }]);
-    setQz(parseQ(r));
-    setLd(false);
+  const tabs = [{id:"home",ic:"🏠",lb:"Accueil"},{id:"cours",ic:"📚",lb:"Cours"},{id:"ia",ic:"🤖",lb:"IA Tuteur"},{id:"notes",ic:"📊",lb:"Notes"},{id:"orient",ic:"🧭",lb:"Orientation"}];
+
+  const buildTutorSystem = (mode) => {
+    const modeInfo = TUTOR_MODES.find(m=>m.id===mode)||TUTOR_MODES[0];
+    return `Tu es ${BRAND_SHORT}, assistant pédagogique IA d'une école d'excellence à Djibouti. Ne jamais mentionner "IA" ou "intelligence artificielle" — tu es ${BRAND_SHORT}.
+ÉLÈVE: ${user.name} | Classe: ${user.cls} | Niveau: ${lv} | Matières: ${cur.s.join(", ")}
+MODE: ${modeInfo.n} — ${modeInfo.d}
+${mode==="quiz"||mode==="exam"?"Après chaque réponse: ✅ ou ❌. Format quiz:\n[QUIZ]\nQ: question\nA) opt1\nB) opt2\nC) opt3\nD) opt4\nCORRECT: B\nEXPLICATION: explication\n[/QUIZ]":""}
+${mode==="homework"?"Guide l'élève étape par étape. Ne donne pas la réponse directement. Pose des questions pour aider à comprendre.":""}
+${mode==="plan"?"Crée un planning de révision structuré sur 2 semaines avec créneaux horaires.":""}
+Réponds toujours en français. Adapte le niveau à ${lv}.`;
   };
 
-  const hQA = (qi, oi) => {
-    setQA(p => ({ ...p, [qi]: oi }));
-    const q = qzs[qi];
-    const ok = oi === q.c;
-    setTimeout(() => {
-      if (ok) send('✅ Correct "' + q.os[oi] + '". Niveau supérieur.');
-      else send('❌ Faux "' + q.os[oi] + '" à "' + q.q + '". Bonne: "' + q.os[q.c] + '". NOUVELLE question MÊME niveau.');
-    }, 1500);
-  };
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", height: "calc(100dvh - 120px)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexShrink: 0 }}>
-        <button onClick={onBack} style={{ background: "none", border: "none", color: BC, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 }}>←</button>
-        <div style={{ width: 28, height: 28, borderRadius: 7, background: (mo?.cl || BC) + "18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>{mo?.ic || BI}</div>
-        <div style={{ flex: 1 }}><div style={{ fontSize: 12, fontWeight: 800 }}>{mo?.n}</div><div style={{ fontSize: 9, color: Z.m }}>{user.cls} • {lv}</div></div>
-        <div style={{ fontSize: 8, color: BC, fontWeight: 700, background: BC + "15", padding: "3px 8px", borderRadius: 10 }}>{BI} {BR}</div>
-      </div>
-      <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 6, flexShrink: 0 }}>
-        {(cur?.s || []).slice(0, 8).map(s => (
-          <button key={s} onClick={() => setI("Je veux travailler " + s)} style={{ padding: "4px 10px", borderRadius: 14, border: "1px solid " + Z.bd, background: Z.c, color: Z.m, fontSize: 9, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>{s}</button>
-        ))}
-      </div>
-      <div ref={ref} style={{ flex: 1, overflowY: "auto", paddingBottom: 10 }}>
-        {msgs.map((m, i) => (
-          <div key={i} style={{ display: "flex", justifyContent: m.r === "user" ? "flex-end" : "flex-start", marginBottom: 8 }}>
-            <div style={{ maxWidth: "88%", padding: m.r === "user" ? "10px 14px" : "12px 16px", borderRadius: m.r === "user" ? "14px 14px 4px 14px" : "14px 14px 14px 4px", background: m.r === "user" ? Z.b + "15" : "rgba(255,255,255,0.04)", border: "1px solid " + (m.r === "user" ? Z.b : Z.bd) + "15" }}>
-              {m.r === "school" && <div style={{ fontSize: 10, color: BC, fontWeight: 700, marginBottom: 4 }}>{BI} {BR}</div>}
-              {m.r === "school" ? <div>{renderMd(m.t)}</div> : <div style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", lineHeight: 1.6 }}>{m.t}</div>}
-            </div>
+  if(tutorMode){
+    const modeInfo = TUTOR_MODES.find(m=>m.id===tutorMode);
+    const subjectChips = cur.s.slice(0,8);
+    const [chipInp,setChipInp] = useState("");
+    return (
+      <div style={{minHeight:"100dvh",background:"linear-gradient(170deg,"+C.bg+",#0a1020)",color:C.w}}>
+        <Header t1={BRAND_SHORT} t2={user.name+" • "+user.cls} onOut={onOut}/>
+        <div style={{padding:"12px 16px",borderBottom:"1px solid "+C.border}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+            <button onClick={()=>setTutorMode(null)} style={{background:"none",border:"none",color:C.primary,fontSize:13,fontWeight:700,cursor:"pointer"}}>← Modes</button>
+            <div style={{width:28,height:28,borderRadius:7,background:(modeInfo?.cl||C.primary)+"20",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>{modeInfo?.ic}</div>
+            <div style={{flex:1}}><div style={{fontSize:12,fontWeight:800}}>{modeInfo?.n}</div><div style={{fontSize:9,color:C.m}}>{user.cls} • {lv}</div></div>
           </div>
-        ))}
-        {qzs.map((q, i) => <QCard key={msgs.length + "-" + i} q={q} done={qA[i] !== undefined} si={qA[i]} onA={o => hQA(i, o)} />)}
-        {ld && <div style={{ fontSize: 12, color: BC, padding: 10, animation: "blink 1s ease infinite" }}>{BI} {BR} prépare ta réponse...</div>}
-      </div>
-      <div style={{ display: "flex", gap: 8, flexShrink: 0, paddingTop: 8 }}>
-        <input value={inp} onChange={e => setI(e.target.value)} onKeyDown={e => { if (e.key === "Enter") send(); }} placeholder="Pose ta question..." style={{ flex: 1, padding: "12px 14px", borderRadius: 10, border: "1.5px solid " + Z.bd, background: "rgba(255,255,255,0.03)", color: Z.w, fontSize: 13, outline: "none" }} />
-        <button onClick={() => send()} disabled={ld} style={{ padding: "12px 16px", borderRadius: 10, border: "none", background: BC, color: Z.w, fontWeight: 800, cursor: "pointer", opacity: ld ? 0.5 : 1, fontSize: 16 }}>↑</button>
-      </div>
-    </div>
-  );
-};
-
-// ═══ STUDENT ═══
-const StudentP = ({ user, onOut }) => {
-  const [tab, setTab] = useState("home");
-  const [mode, setMode] = useState(null);
-  const lv = c2l(user.cls);
-  const cur = CUR[lv];
-  const tabs = [{ id: "home", ic: "🏠", lb: "Accueil" }, { id: "modes", ic: "🏆", lb: "Modes" }, { id: "subjects", ic: "📚", lb: "Matières" }];
-
-  if (mode) return (
-    <div style={{ minHeight: "100dvh", background: "linear-gradient(170deg," + Z.bg + ",#0a1020)", color: Z.w }}>
-      <Hd t1={BR} t2={user.name + " • " + user.cls} onOut={onOut} />
-      <div style={{ padding: "10px 18px 80px" }}><Chat user={user} mode={mode} onBack={() => setMode(null)} /></div>
-      <Nv tabs={tabs} act="modes" onT={t => { setMode(null); setTab(t); }} ac={BC} />
-    </div>
-  );
-
-  return (
-    <div style={{ minHeight: "100dvh", background: "linear-gradient(170deg," + Z.bg + ",#0a1020)", color: Z.w }}>
-      <Hd t1={BR} t2={user.name + " • " + user.cls + " • " + lv} onOut={onOut} />
-      <div style={{ padding: "14px 18px 100px" }}>
-        {tab === "home" && (
-          <>
-            <Cd s={{ background: "linear-gradient(135deg," + BC + "12," + Z.p + "08)", border: "1px solid " + BC + "25", padding: 20, marginBottom: 14 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                <div style={{ width: 44, height: 44, borderRadius: 12, background: BC + "20", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>{BI}</div>
-                <div><div style={{ fontSize: 16, fontWeight: 800, fontFamily: FD }}>Bienvenue {user.name.split(" ")[0]} !</div><div style={{ fontSize: 11, color: Z.m }}>{BR} • {lv}</div></div>
-              </div>
-              <p style={{ fontSize: 12, color: Z.m, lineHeight: 1.6, margin: "0 0 12px" }}>Cours, quiz, révisions — tout adapté à ton niveau.</p>
-              <Btn onClick={() => { setTab("modes"); setMode("chat"); }} color={BC}>💬 Commencer →</Btn>
-            </Cd>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              {[{ m: "setup", i: "⚙️", l: "Diagnostic", c: "#6366f1" }, { m: "quiz", i: "❓", l: "Quiz", c: Z.a }, { m: "learn", i: "📖", l: "Cours", c: Z.g }, { m: "plan", i: "📋", l: "Planning", c: "#f97316" }].map(x => (
-                <Cd key={x.m} onClick={() => setMode(x.m)} s={{ textAlign: "center", padding: 14, background: x.c + "08", border: "1px solid " + x.c + "18" }}>
-                  <div style={{ fontSize: 22, marginBottom: 4 }}>{x.i}</div>
-                  <div style={{ fontSize: 11, fontWeight: 800 }}>{x.l}</div>
-                </Cd>
-              ))}
-            </div>
-          </>
-        )}
-        {tab === "modes" && (
-          <>
-            <div style={{ fontSize: 14, fontWeight: 800, fontFamily: FD, marginBottom: 14 }}>{BI} 9 modes</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              {MODES.map(m => (
-                <Cd key={m.id} onClick={() => setMode(m.id)} s={{ textAlign: "center", padding: 14, background: m.cl + "08", border: "1px solid " + m.cl + "18" }}>
-                  <div style={{ fontSize: 24, marginBottom: 4 }}>{m.ic}</div>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: m.cl }}>{m.n}</div>
-                  <div style={{ fontSize: 9, color: Z.m, marginTop: 3 }}>{m.d}</div>
-                </Cd>
-              ))}
-            </div>
-          </>
-        )}
-        {tab === "subjects" && (
-          <>
-            <div style={{ fontSize: 14, fontWeight: 800, fontFamily: FD, marginBottom: 14 }}>📚 {lv} — Matières</div>
-            {(cur?.s || []).map((s, i) => (
-              <Cd key={s} onClick={() => setMode("learn")} s={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 12, padding: 14 }}>
-                <div style={{ width: 38, height: 38, borderRadius: 10, background: [Z.b, Z.p, Z.g, Z.a, Z.t, "#ec4899", Z.r, "#6366f1"][i % 8] + "18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17 }}>📚</div>
-                <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 800 }}>{s}</div></div>
-                <span style={{ color: BC, fontWeight: 700 }}>→</span>
-              </Cd>
+          <div style={{display:"flex",gap:5,overflowX:"auto",paddingBottom:4}}>
+            {subjectChips.map(s=>(
+              <button key={s} onClick={()=>setChipInp("Je veux travailler: "+s)} style={{padding:"4px 10px",borderRadius:14,border:"1px solid "+C.border,background:C.card,color:C.m,fontSize:9,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>{s}</button>
             ))}
-          </>
-        )}
+          </div>
+        </div>
+        <div style={{padding:"12px 16px",height:"calc(100dvh - 200px)"}}>
+          <AiChat systemPrompt={buildTutorSystem(tutorMode)} placeholder={tutorMode==="homework"?"Décris ton problème de devoir...":"Pose ta question..."} welcomeMsg={"Bonjour! Je suis "+user.name+" en "+user.cls+". Mode "+modeInfo?.n+"."+(chipInp?" "+chipInp:"")} enableQuiz={tutorMode==="quiz"||tutorMode==="exam"}/>
+        </div>
       </div>
-      <Nv tabs={tabs} act={tab} onT={t => { setTab(t); setMode(null); }} ac={BC} />
-    </div>
-  );
-};
-
-// ═══ PARENT ═══
-const ParentP = ({ user, db, onOut }) => {
-  const ch = (user.childIds || []).map(id => ({ id, ...(db.users[id] || {}) })).filter(c => c.name);
-  return (
-    <div style={{ minHeight: "100dvh", background: "linear-gradient(170deg," + Z.bg + ",#0a1020)", color: Z.w }}>
-      <Hd t1={BR + " — Parent"} t2={user.name} onOut={onOut} />
-      <div style={{ padding: "14px 18px 100px" }}>
-        {ch.length === 0 && <Cd s={{ textAlign: "center", padding: 24 }}><div style={{ fontSize: 14, fontWeight: 800 }}>Aucun enfant associé</div></Cd>}
-        {ch.map(c => (
-          <Cd key={c.id} s={{ marginBottom: 12, background: Z.p + "0c", border: "1px solid " + Z.p + "20" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: Z.p + "20", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 800 }}>{(c.name || "?")[0]}</div>
-              <div><div style={{ fontSize: 16, fontWeight: 800, fontFamily: FD }}>{c.name}</div><div style={{ fontSize: 11, color: Z.m }}>Classe: {c.cls} • {c2l(c.cls)}</div></div>
-            </div>
-          </Cd>
-        ))}
-        <Cd><div style={{ fontSize: 12, fontWeight: 800, marginBottom: 8 }}>{BI} {BR}</div><p style={{ fontSize: 11, color: Z.m, lineHeight: 1.6, margin: 0 }}>Chaque quiz est unique. Correction immédiate. 9 modes d'apprentissage.</p></Cd>
-      </div>
-    </div>
-  );
-};
-
-// ═══ TEACHER — WITH CHAPTER ACCESS ═══
-const TeacherP = ({ user, db, setDB, onOut }) => {
-  const [tab, setTab] = useState("home");
-  const [selSubj, setSS] = useState(null);
-  const [selCls, setSC] = useState(null);
-  const [newCh, setNCh] = useState("");
-  const [msg, setMsg] = useState("");
-
-  const stu = Object.entries(db.users).filter(([, u]) => u.role === "student" && (user.classes || []).includes(u.cls)).map(([id, u]) => ({ id, ...u }));
-  const myClasses = user.classes || [];
-
-  const addChapter = (cls, subj) => {
-    if (!newCh.trim()) return;
-    const key = cls + "::" + subj;
-    const existing = db.chapters[key] || DEFAULT_CHAPTERS[subj] || [];
-    if (existing.includes(newCh.trim())) { setMsg("❌ Ce chapitre existe déjà"); return; }
-    const updated = [...existing, newCh.trim()];
-    setDB(prev => ({ ...prev, chapters: { ...prev.chapters, [key]: updated } }));
-    setNCh("");
-    setMsg("✅ Chapitre ajouté: " + newCh.trim());
-  };
-
-  const tabs = [{ id: "home", ic: "🏠", lb: "Tableau" }, { id: "chapters", ic: "📖", lb: "Chapitres" }, { id: "stu", ic: "👥", lb: "Élèves" }];
+    );
+  }
 
   return (
-    <div style={{ minHeight: "100dvh", background: "linear-gradient(170deg," + Z.bg + ",#0a1020)", color: Z.w }}>
-      <Hd t1={BR + " — Enseignant"} t2={user.name + " • " + user.subject} onOut={onOut} />
-      <div style={{ padding: "14px 18px 100px" }}>
-        {tab === "home" && (
+    <div style={{minHeight:"100dvh",background:"linear-gradient(170deg,"+C.bg+",#0a1020)",color:C.w}}>
+      <Header t1={BRAND_SHORT} t2={user.name+" • "+user.cls} onOut={onOut}/>
+      <div style={{padding:"14px 16px 100px"}}>
+
+        {tab==="home"&&(
           <>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
-              <Cd s={{ padding: 12, background: Z.a + "08", border: "1px solid " + Z.a + "18" }}><div style={{ fontSize: 20, fontWeight: 800 }}>{stu.length}</div><div style={{ fontSize: 10, color: Z.m }}>Élèves</div></Cd>
-              <Cd s={{ padding: 12, background: Z.b + "08", border: "1px solid " + Z.b + "18" }}><div style={{ fontSize: 20, fontWeight: 800 }}>{myClasses.length}</div><div style={{ fontSize: 10, color: Z.m }}>Classes</div></Cd>
+            <Card s={{background:"linear-gradient(135deg,"+C.primary+"15,"+C.purple+"10)",border:"1px solid "+C.primary+"30",marginBottom:14,padding:20}}>
+              <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
+                <div style={{width:48,height:48,borderRadius:14,background:C.primary+"25",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26}}>🎓</div>
+                <div><div style={{fontSize:17,fontWeight:800,fontFamily:FD}}>Bonjour, {user.name.split(" ")[0]} !</div><div style={{fontSize:11,color:C.m}}>{user.cls} • {lv} • {db.schoolName||"ÉcoleAI"}</div></div>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
+                <div style={{textAlign:"center",padding:10,background:"rgba(0,0,0,0.2)",borderRadius:10}}><div style={{fontSize:18,fontWeight:800,color:C.green}}>{avg||"—"}</div><div style={{fontSize:9,color:C.m}}>Moyenne</div></div>
+                <div style={{textAlign:"center",padding:10,background:"rgba(0,0,0,0.2)",borderRadius:10}}><div style={{fontSize:18,fontWeight:800,color:C.blue}}>{attRate!=null?attRate+"%":"—"}</div><div style={{fontSize:9,color:C.m}}>Présence</div></div>
+                <div style={{textAlign:"center",padding:10,background:"rgba(0,0,0,0.2)",borderRadius:10}}><div style={{fontSize:18,fontWeight:800,color:C.amber}}>{cur.s.length}</div><div style={{fontSize:9,color:C.m}}>Matières</div></div>
+              </div>
+              <Btn onClick={()=>{setTab("ia");}} color={C.primary} full>🤖 Démarrer avec l'IA →</Btn>
+            </Card>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              {[{m:"quiz",i:"❓",l:"Quiz rapide",c:C.amber},{m:"homework",i:"📝",l:"Aide devoirs",c:C.orange},{m:"learn",i:"📖",l:"Cours",c:C.green},{m:"exam",i:"🏆",l:"Préparer exam",c:C.gold}].map(x=>(
+                <Card key={x.m} onClick={()=>{setTutorMode(x.m);setTab("ia");}} s={{textAlign:"center",padding:16,background:x.c+"0a",border:"1px solid "+x.c+"20"}}>
+                  <div style={{fontSize:24,marginBottom:4}}>{x.i}</div><div style={{fontSize:11,fontWeight:800}}>{x.l}</div>
+                </Card>
+              ))}
             </div>
-            <Cd s={{ background: BC + "08", border: "1px solid " + BC + "18" }}>
-              <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 6 }}>{BI} {BR}</div>
-              <p style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", margin: 0, lineHeight: 1.6 }}>Accédez aux chapitres de votre matière par classe. Vous pouvez ajouter des chapitres supplémentaires.</p>
-            </Cd>
           </>
         )}
 
-        {tab === "chapters" && !selCls && (
+        {tab==="cours"&&(
           <>
-            <div style={{ fontSize: 14, fontWeight: 800, fontFamily: FD, marginBottom: 14 }}>📖 {user.subject} — Chapitres par classe</div>
-            {myClasses.map(cls => {
-              const chapters = getChaptersForSubject(db, cls, user.subject);
+            <div style={{fontSize:15,fontWeight:800,fontFamily:FD,marginBottom:14}}>📚 {lv} — Mes Matières</div>
+            {cur.s.map((subj,i)=>{
+              const chapters = getChapters(db,user.cls,subj);
+              const open = selSubj===subj;
               return (
-                <Cd key={cls} onClick={() => setSC(cls)} s={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 12, padding: 14 }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 10, background: Z.g + "18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800 }}>{chapters.length}</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 800 }}>{cls}</div>
-                    <div style={{ fontSize: 10, color: Z.m }}>{chapters.length} chapitres • {user.subject}</div>
+                <Card key={subj} s={{marginBottom:8,padding:0,overflow:"hidden"}}>
+                  <div onClick={()=>setSelSubj(open?null:subj)} style={{padding:"13px 16px",display:"flex",alignItems:"center",gap:10,cursor:"pointer"}}>
+                    <div style={{width:36,height:36,borderRadius:9,background:[C.blue,C.purple,C.green,C.amber,C.teal,C.pink,C.red,C.orange][i%8]+"18",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:800}}>{i+1}</div>
+                    <div style={{flex:1}}><div style={{fontSize:13,fontWeight:700}}>{subj}</div><div style={{fontSize:10,color:C.m}}>{chapters.length} chapitres</div></div>
+                    <span style={{color:C.m,fontSize:12}}>{open?"▼":"▶"}</span>
                   </div>
-                  <span style={{ color: Z.g, fontWeight: 700 }}>→</span>
-                </Cd>
+                  {open&&<div style={{borderTop:"1px solid "+C.border,padding:"10px 16px 14px"}}>
+                    {chapters.map((ch,j)=>(
+                      <div key={j} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:j<chapters.length-1?"1px solid "+C.border+"50":"none"}}>
+                        <div style={{width:22,height:22,borderRadius:6,background:C.primary+"15",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:800,color:C.primary}}>{j+1}</div>
+                        <span style={{fontSize:12}}>{ch}</span>
+                      </div>
+                    ))}
+                    <div style={{marginTop:10}}>
+                      <Btn onClick={()=>{setTutorMode("learn");setTab("ia");}} color={C.primary} s={{fontSize:11,padding:"8px 14px"}}>📖 Étudier avec l'IA →</Btn>
+                    </div>
+                  </div>}
+                </Card>
               );
             })}
           </>
         )}
 
-        {tab === "chapters" && selCls && (
+        {tab==="ia"&&(
           <>
-            <button onClick={() => setSC(null)} style={{ background: "none", border: "none", color: Z.g, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0, marginBottom: 12 }}>← Retour aux classes</button>
-            <div style={{ fontSize: 14, fontWeight: 800, fontFamily: FD, marginBottom: 4 }}>{selCls} — {user.subject}</div>
-            <div style={{ fontSize: 11, color: Z.m, marginBottom: 14 }}>Chapitres détaillés</div>
-
-            {getChaptersForSubject(db, selCls, user.subject).map((ch, i) => (
-              <Cd key={i} s={{ marginBottom: 6, padding: 12, display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ width: 26, height: 26, borderRadius: 7, background: Z.g + "18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: Z.g }}>{i + 1}</div>
-                <div style={{ flex: 1, fontSize: 12, fontWeight: 600 }}>{ch}</div>
-              </Cd>
-            ))}
-
-            <Cd s={{ marginTop: 14, padding: 14 }}>
-              <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 8 }}>➕ Ajouter un chapitre</div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <input value={newCh} onChange={e => setNCh(e.target.value)} onKeyDown={e => { if (e.key === "Enter") addChapter(selCls, user.subject); }} placeholder="Nom du chapitre" style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "1.5px solid " + Z.bd, background: "rgba(255,255,255,0.03)", color: Z.w, fontSize: 12, outline: "none" }} />
-                <Btn onClick={() => addChapter(selCls, user.subject)} color={Z.g} s={{ fontSize: 11, padding: "10px 16px" }}>+ Ajouter</Btn>
-              </div>
-              {msg && <div style={{ marginTop: 8, fontSize: 11, color: msg[0] === "✅" ? Z.g : Z.r }}>{msg}</div>}
-            </Cd>
+            <div style={{fontSize:15,fontWeight:800,fontFamily:FD,marginBottom:4}}>🤖 IA Tuteur</div>
+            <div style={{fontSize:11,color:C.m,marginBottom:14}}>9 modes d'apprentissage personnalisés</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+              {TUTOR_MODES.map(m=>(
+                <Card key={m.id} onClick={()=>setTutorMode(m.id)} s={{textAlign:"center",padding:12,background:m.cl+"08",border:"1px solid "+m.cl+"20"}}>
+                  <div style={{fontSize:22,marginBottom:4}}>{m.ic}</div>
+                  <div style={{fontSize:10,fontWeight:800,color:m.cl}}>{m.n}</div>
+                  <div style={{fontSize:8,color:C.m,marginTop:2}}>{m.d}</div>
+                </Card>
+              ))}
+            </div>
           </>
         )}
 
-        {tab === "stu" && (
+        {tab==="notes"&&(
           <>
-            <div style={{ fontSize: 14, fontWeight: 800, fontFamily: FD, marginBottom: 14 }}>👥 Mes élèves</div>
-            {stu.length === 0 && <Cd s={{ textAlign: "center", padding: 20 }}><p style={{ fontSize: 12, color: Z.m }}>Aucun élève dans vos classes</p></Cd>}
-            {stu.map(s => (
-              <Cd key={s.id} s={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 10, padding: 12 }}>
-                <div style={{ width: 34, height: 34, borderRadius: 8, background: Z.a + "18", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14 }}>{(s.name || "?")[0]}</div>
-                <div style={{ flex: 1 }}><div style={{ fontSize: 12, fontWeight: 700 }}>{s.name}</div><div style={{ fontSize: 10, color: Z.d }}>{s.cls} • {s.id}</div></div>
-              </Cd>
-            ))}
-          </>
-        )}
-      </div>
-      <Nv tabs={tabs} act={tab} onT={t => { setTab(t); setSC(null); setMsg(""); }} ac={Z.a} />
-    </div>
-  );
-};
-
-
-// ═══ API KEY SETUP ═══
-const ApiKeySetup = () => {
-  const [key, setKey] = useState(getApiKey());
-  const [show, setShow] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const save = () => { setApiKey(key.trim()); setSaved(true); setTimeout(() => setSaved(false), 2000); };
-  return (
-    <Cd s={{ marginBottom: 14, padding: 16, background: BC + "08", border: "1px solid " + BC + "18" }}>
-      <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 8 }}>⚙️ Configuration API — Claude</div>
-      <p style={{ fontSize: 11, color: Z.m, lineHeight: 1.5, margin: "0 0 10px" }}>
-        Pour que {BR} fonctionne, entrez votre clé API Anthropic. Obtenez-la sur <strong style={{ color: Z.w }}>console.anthropic.com</strong>
-      </p>
-      <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-        <input value={key} onChange={e => setKey(e.target.value)} type={show ? "text" : "password"}
-          placeholder="sk-ant-..." style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "1.5px solid " + Z.bd, background: "rgba(255,255,255,0.03)", color: Z.w, fontSize: 12, outline: "none", fontFamily: "monospace" }} />
-        <button onClick={() => setShow(!show)} style={{ padding: "0 10px", borderRadius: 8, border: "1px solid " + Z.bd, background: Z.c, color: Z.m, cursor: "pointer" }}>{show ? "🙈" : "👁️"}</button>
-      </div>
-      <div style={{ display: "flex", gap: 8 }}>
-        <Btn onClick={save} color={BC} s={{ fontSize: 11, padding: "8px 16px" }}>💾 Sauvegarder la clé</Btn>
-        {saved && <span style={{ fontSize: 11, color: Z.g, alignSelf: "center" }}>✅ Sauvegardée !</span>}
-        {key && !saved && <span style={{ fontSize: 11, color: Z.g, alignSelf: "center" }}>🟢 Clé configurée</span>}
-      </div>
-    </Cd>
-  );
-};
-
-// ═══ ADMIN — CLASS + USER + CHAPTER OVERVIEW ═══
-const AdminP = ({ user, db, setDB, onOut }) => {
-  const [tab, setTab] = useState("home");
-  const [cM, setCM] = useState(null);
-  const [eId, setEI] = useState(null);
-  const [fd, setFd] = useState({});
-  const [msg, setMsg] = useState("");
-  const [fR, setFR] = useState("all");
-  const [sr, setSr] = useState("");
-  const [sp, setSP] = useState(false);
-  const [cd, setCD] = useState(null);
-  const [nc, setNC] = useState("");
-  const [selC, setSC] = useState(null);
-  const [viewSubj, setVS] = useState(null);
-  const ac = "#10b981";
-
-  const us = db.users;
-  const cls = db.classes || [];
-  const all = Object.entries(us).map(([id, u]) => ({ id, ...u }));
-  const sts = all.filter(u => u.role === "student");
-  const prs = all.filter(u => u.role === "parent");
-  const tcs = all.filter(u => u.role === "teacher");
-  const ads = all.filter(u => u.role === "admin");
-  const flt = all.filter(u => {
-    if (fR !== "all" && u.role !== fR) return false;
-    if (sr && !(u.name || "").toLowerCase().includes(sr.toLowerCase()) && !u.id.toLowerCase().includes(sr.toLowerCase())) return false;
-    return true;
-  });
-  const sInC = (c) => sts.filter(s => s.cls === c);
-
-  const genId = (r) => { const p = r === "student" ? "ECE" : r === "parent" ? "PAR" : r === "teacher" ? "PROF" : "ADM"; let n = 1; while (us[p + String(n).padStart(3, "0")]) n++; return p + String(n).padStart(3, "0"); };
-  const startC = (r) => { const id = genId(r); const b = { id, pw: "", name: "", role: r }; if (r === "student") { b.cls = ""; b.parentId = ""; } if (r === "parent") b.childIds = []; if (r === "teacher") { b.subject = ""; b.classes = []; } setFd(b); setCM(r); setEI(null); setMsg(""); };
-  const startE = (u) => { setFd({ ...u }); setEI(u.id); setCM(null); setMsg(""); setSP(false); setCD(null); };
-
-  const doSave = () => {
-    const d = fd;
-    if (!(d.name || "").trim()) { setMsg("❌ Nom obligatoire"); return; }
-    if (!(d.pw || "").trim() || d.pw.length < 4) { setMsg("❌ MDP obligatoire (min 4)"); return; }
-    if (d.role === "student" && !d.cls) { setMsg("❌ Classe obligatoire"); return; }
-    if (d.role === "teacher" && !d.subject) { setMsg("❌ Matière obligatoire"); return; }
-    if (d.role === "teacher" && (!d.classes || !d.classes.length)) { setMsg("❌ Au moins 1 classe obligatoire"); return; }
-
-    const id = d.id;
-    const ud = { pw: d.pw.trim(), role: d.role, name: d.name.trim() };
-    const nu = { ...us };
-
-    if (d.role === "student") {
-      ud.cls = d.cls; ud.parentId = d.parentId || "";
-      if (d.parentId && nu[d.parentId]) {
-        const pr = { ...nu[d.parentId] }; if (!pr.childIds) pr.childIds = [];
-        if (!pr.childIds.includes(id)) pr.childIds = [...pr.childIds, id]; nu[d.parentId] = pr;
-      }
-      if (eId) { const old = (us[id] || {}).parentId; if (old && old !== d.parentId && nu[old]) nu[old] = { ...nu[old], childIds: (nu[old].childIds || []).filter(c => c !== id) }; }
-    }
-    if (d.role === "parent") {
-      ud.childIds = d.childIds || [];
-      (d.childIds || []).forEach(c => { if (nu[c]) nu[c] = { ...nu[c], parentId: id }; });
-      if (eId) { ((us[id] || {}).childIds || []).filter(c => !(d.childIds || []).includes(c)).forEach(c => { if (nu[c]) nu[c] = { ...nu[c], parentId: "" }; }); }
-    }
-    if (d.role === "teacher") { ud.subject = d.subject; ud.classes = d.classes || []; }
-    nu[id] = ud;
-    setDB(p => ({ ...p, users: nu }));
-    setMsg("✅ " + (cM ? "Créé" : "Modifié") + ": " + d.name + " (" + id + ")");
-    setCM(null); setEI(null);
-  };
-
-  const doDel = (id) => {
-    if (id === user.uid) { setMsg("❌ Auto-suppression impossible"); return; }
-    const u = us[id]; const nu = { ...us };
-    if (u.role === "student" && u.parentId && nu[u.parentId]) nu[u.parentId] = { ...nu[u.parentId], childIds: (nu[u.parentId].childIds || []).filter(c => c !== id) };
-    if (u.role === "parent") (u.childIds || []).forEach(c => { if (nu[c]) nu[c] = { ...nu[c], parentId: "" }; });
-    delete nu[id]; setDB(p => ({ ...p, users: nu })); setMsg("🗑️ Supprimé"); setEI(null); setCD(null);
-  };
-
-  const addCls = () => {
-    if (!nc.trim()) { setMsg("❌ Nom vide"); return; }
-    if (cls.includes(nc.trim())) { setMsg("❌ Existe déjà"); return; }
-    setDB(p => ({ ...p, classes: [...p.classes, nc.trim()] })); setNC(""); setMsg("✅ Classe: " + nc.trim());
-  };
-  const delCls = (c) => {
-    if (sInC(c).length) { setMsg("❌ " + sInC(c).length + " élève(s) dedans"); return; }
-    setDB(p => ({ ...p, classes: p.classes.filter(x => x !== c) })); setMsg("🗑️ Classe supprimée"); if (selC === c) setSC(null);
-  };
-
-  const rI = (r) => r === "student" ? "🎓" : r === "parent" ? "👨‍👩‍👧" : r === "teacher" ? "📚" : "🏫";
-  const rL = (r) => r === "student" ? "Élève" : r === "parent" ? "Parent" : r === "teacher" ? "Enseignant" : "Admin";
-  const rC = (r) => r === "student" ? Z.b : r === "parent" ? Z.p : r === "teacher" ? Z.a : ac;
-
-  const tabs = [{ id: "home", ic: "🏠", lb: "Pilotage" }, { id: "classes", ic: "🏫", lb: "Classes" }, { id: "users", ic: "👥", lb: "Utilisateurs" }, { id: "create", ic: "➕", lb: "Créer" }];
-
-  // FORM
-  const renderForm = () => {
-    const d = fd; const isN = !!cM;
-    return (
-      <>
-        <button onClick={() => { setCM(null); setEI(null); setMsg(""); }} style={{ background: "none", border: "none", color: ac, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0, marginBottom: 12 }}>← Retour</button>
-        <Cd s={{ padding: 20, marginBottom: 14, background: rC(d.role) + "08", border: "1px solid " + rC(d.role) + "18" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 24 }}>{rI(d.role)}</span>
-            <div><div style={{ fontSize: 16, fontWeight: 800, fontFamily: FD }}>{isN ? "Nouveau " + rL(d.role) : "Modifier: " + d.name}</div><div style={{ fontSize: 11, color: Z.m }}>ID: {d.id}</div></div>
-          </div>
-        </Cd>
-        <Cd s={{ padding: 20 }}>
-          <Inp label="ID (auto)" value={d.id} onChange={() => {}} dis />
-          <Inp label="NOM COMPLET *" value={d.name || ""} onChange={v => setFd({ ...d, name: v })} ph="Prénom Nom" />
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ fontSize: 10, color: Z.m, fontWeight: 700, display: "block", marginBottom: 4 }}>MOT DE PASSE * (min 4)</label>
-            <div style={{ display: "flex", gap: 8 }}>
-              <input value={d.pw || ""} onChange={e => setFd({ ...d, pw: e.target.value })} type={sp ? "text" : "password"} placeholder="Min 4" style={{ flex: 1, padding: "11px 12px", borderRadius: 8, border: "1.5px solid " + Z.bd, background: "rgba(255,255,255,0.03)", color: Z.w, fontSize: 13, outline: "none" }} />
-              <button onClick={() => setSP(!sp)} style={{ padding: "0 12px", borderRadius: 8, border: "1px solid " + Z.bd, background: Z.c, color: Z.m, cursor: "pointer" }}>{sp ? "🙈" : "👁️"}</button>
-            </div>
-          </div>
-          {d.role === "student" && (
-            <>
-              <Sel label="CLASSE *" value={d.cls || ""} onChange={v => setFd({ ...d, cls: v })} options={cls} />
-              <Sel label="PARENT (optionnel)" value={d.parentId || ""} onChange={v => setFd({ ...d, parentId: v })} options={prs.map(p => p.id)} />
-              {d.parentId && us[d.parentId] && <div style={{ fontSize: 11, color: Z.g, marginTop: -8, marginBottom: 8 }}>✓ {us[d.parentId].name}</div>}
-            </>
-          )}
-          {d.role === "parent" && (
-            <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 10, color: Z.m, fontWeight: 700, display: "block", marginBottom: 6 }}>ENFANTS</label>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {sts.map(s => { const sl = (d.childIds || []).includes(s.id); return (
-                  <button key={s.id} onClick={() => setFd({ ...d, childIds: sl ? (d.childIds || []).filter(x => x !== s.id) : [...(d.childIds || []), s.id] })}
-                    style={{ padding: "7px 12px", borderRadius: 8, border: "1.5px solid " + (sl ? Z.g : Z.bd), background: sl ? Z.g + "15" : "transparent", color: sl ? Z.g : Z.m, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                    {sl ? "✓ " : ""}{s.name} ({s.cls})
-                  </button>
-                ); })}
-              </div>
-            </div>
-          )}
-          {d.role === "teacher" && (
-            <>
-              <Sel label="MATIÈRE *" value={d.subject || ""} onChange={v => setFd({ ...d, subject: v })} options={SUB_LIST} />
-              <div style={{ marginBottom: 12 }}>
-                <label style={{ fontSize: 10, color: Z.m, fontWeight: 700, display: "block", marginBottom: 6 }}>CLASSES * (min 1)</label>
-                <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                  {cls.map(c => { const s = (d.classes || []).includes(c); return (
-                    <button key={c} onClick={() => setFd({ ...d, classes: s ? (d.classes || []).filter(x => x !== c) : [...(d.classes || []), c] })}
-                      style={{ padding: "5px 10px", borderRadius: 6, border: "1px solid " + (s ? Z.b : Z.bd), background: s ? Z.b + "18" : "transparent", color: s ? Z.b : Z.m, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>{c}</button>
-                  ); })}
-                </div>
-              </div>
-            </>
-          )}
-          {msg && <div style={{ padding: 12, borderRadius: 8, background: (msg.startsWith("✅") || msg.startsWith("🗑") ? Z.g : Z.r) + "0c", fontSize: 12, color: msg.startsWith("✅") || msg.startsWith("🗑") ? Z.g : Z.r, marginBottom: 12 }}>{msg}</div>}
-          <Btn onClick={doSave} color={ac} full>{isN ? "✅ Créer" : "💾 Sauvegarder"}</Btn>
-          {!isN && d.id !== user.uid && (
-            cd === d.id ? (
-              <div style={{ marginTop: 12, padding: 14, borderRadius: 10, background: Z.r + "0c", border: "1px solid " + Z.r + "20" }}>
-                <div style={{ fontSize: 12, fontWeight: 800, color: Z.r, marginBottom: 8 }}>⚠️ Confirmer ?</div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <Btn onClick={() => doDel(d.id)} color={Z.r} s={{ flex: 1, fontSize: 12 }}>🗑️ Oui</Btn>
-                  <Btn onClick={() => setCD(null)} outline color={Z.w} s={{ flex: 1, fontSize: 12 }}>Annuler</Btn>
-                </div>
-              </div>
-            ) : <Btn onClick={() => setCD(d.id)} outline color={Z.r} full s={{ marginTop: 12 }}>🗑️ Supprimer</Btn>
-          )}
-        </Cd>
-      </>
-    );
-  };
-
-  return (
-    <div style={{ minHeight: "100dvh", background: "linear-gradient(170deg," + Z.bg + ",#0a1020)", color: Z.w }}>
-      <Hd t1={BR + " — Admin"} t2={user.name + " • " + user.uid} onOut={onOut} />
-      <div style={{ padding: "14px 18px 100px" }}>
-        {(cM || eId) ? renderForm() : (
-          <>
-            {/* HOME */}
-            {tab === "home" && (
+            <div style={{fontSize:15,fontWeight:800,fontFamily:FD,marginBottom:4}}>📊 Mes Notes</div>
+            <div style={{fontSize:11,color:C.m,marginBottom:14}}>Année {db.year||"2025-2026"}</div>
+            {gradesList.length===0&&<Card s={{textAlign:"center",padding:24,color:C.m}}><div style={{fontSize:32,marginBottom:8}}>📊</div><div>Notes non encore saisies</div></Card>}
+            {gradesList.length>0&&(
               <>
-                <ApiKeySetup />
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
-                  {[{ v: sts.length, l: "Élèves", c: Z.b, i: "🎓" }, { v: prs.length, l: "Parents", c: Z.p, i: "👨‍👩‍👧" }, { v: tcs.length, l: "Enseignants", c: Z.a, i: "📚" }, { v: ads.length, l: "Admins", c: ac, i: "🏫" }].map((s, i) => (
-                    <Cd key={i} s={{ padding: 12, background: s.c + "08", border: "1px solid " + s.c + "18" }}>
-                      <div style={{ fontSize: 16, marginBottom: 4 }}>{s.i}</div>
-                      <div style={{ fontSize: 22, fontWeight: 800 }}>{s.v}</div>
-                      <div style={{ fontSize: 10, color: Z.m, marginTop: 2 }}>{s.l}</div>
-                    </Cd>
-                  ))}
-                </div>
-
-                {/* Chapter overview by class */}
-                <Cd s={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 10 }}>📖 Chapitres par classe (titres)</div>
-                  {cls.slice(0, 6).map(c => {
-                    const lv = c2l(c);
-                    const subjects = CUR[lv]?.s || [];
-                    return (
-                      <div key={c} style={{ marginBottom: 8 }}>
-                        <div onClick={() => setVS(viewSubj === c ? null : c)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", cursor: "pointer", borderBottom: "1px solid " + Z.bd }}>
-                          <span style={{ fontSize: 12, fontWeight: 800 }}>{c}</span>
-                          <span style={{ fontSize: 10, color: Z.m, flex: 1 }}>{subjects.length} matières</span>
-                          <span style={{ fontSize: 10, color: Z.m }}>{viewSubj === c ? "▼" : "▶"}</span>
-                        </div>
-                        {viewSubj === c && subjects.map(subj => (
-                          <div key={subj} style={{ paddingLeft: 12, padding: "4px 0 4px 12px" }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: Z.b }}>{subj}</div>
-                            {getChaptersForSubject(db, c, subj).map((ch, j) => (
-                              <div key={j} style={{ fontSize: 10, color: Z.d, paddingLeft: 10 }}>• {ch}</div>
-                            ))}
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })}
-                </Cd>
-
-                <Cd s={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 10 }}>🔗 Liaisons parent ↔ élève</div>
-                  {sts.map(s => {
-                    const pr = s.parentId ? us[s.parentId] : null;
-                    return (
-                      <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid " + Z.bd }}>
-                        <span style={{ fontSize: 11 }}>🎓</span>
-                        <span style={{ flex: 1, fontSize: 11, fontWeight: 700 }}>{s.name} <span style={{ color: Z.d, fontWeight: 400 }}>({s.cls})</span></span>
-                        {pr ? <span style={{ fontSize: 10, color: Z.g }}>↔ {pr.name}</span> : <span style={{ fontSize: 10, color: Z.r }}>⚠️</span>}
-                      </div>
-                    );
-                  })}
-                </Cd>
-                {msg && <div style={{ padding: 10, borderRadius: 8, background: Z.g + "0c", fontSize: 12, color: Z.g }}>{msg}</div>}
-              </>
-            )}
-
-            {/* CLASSES */}
-            {tab === "classes" && (
-              <>
-                <div style={{ fontSize: 14, fontWeight: 800, fontFamily: FD, marginBottom: 4 }}>🏫 Classes ({cls.length})</div>
-                <div style={{ fontSize: 11, color: Z.m, marginBottom: 14 }}>Un élève = une seule classe</div>
-                <Cd s={{ marginBottom: 14, padding: 14 }}>
-                  <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 8 }}>➕ Nouvelle classe</div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <input value={nc} onChange={e => setNC(e.target.value)} onKeyDown={e => { if (e.key === "Enter") addCls(); }} placeholder="Ex: 4ème C" style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "1.5px solid " + Z.bd, background: "rgba(255,255,255,0.03)", color: Z.w, fontSize: 12, outline: "none" }} />
-                    <Btn onClick={addCls} color={ac} s={{ fontSize: 11, padding: "10px 16px" }}>+ Créer</Btn>
-                  </div>
-                </Cd>
-                {cls.map(c => {
-                  const si = sInC(c); const open = selC === c;
+                <Card s={{background:C.primary+"0a",border:"1px solid "+C.primary+"20",marginBottom:14,padding:16,textAlign:"center"}}>
+                  <div style={{fontSize:28,fontWeight:800,color:C.primary}}>{avg}/20</div>
+                  <div style={{fontSize:11,color:C.m}}>Moyenne générale</div>
+                </Card>
+                {gradesList.map(([subj,g])=>{
+                  const color = g>=14?C.green:g>=10?C.amber:C.red;
                   return (
-                    <Cd key={c} s={{ marginBottom: 8, padding: 0, overflow: "hidden" }}>
-                      <div onClick={() => setSC(open ? null : c)} style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 10, cursor: "pointer", background: open ? ac + "0c" : "transparent" }}>
-                        <div style={{ width: 36, height: 36, borderRadius: 10, background: ac + "18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800 }}>{si.length}</div>
-                        <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 800 }}>{c}</div><div style={{ fontSize: 10, color: Z.m }}>{si.length} élève(s) • {c2l(c)}</div></div>
-                        <span style={{ fontSize: 12, color: Z.m }}>{open ? "▼" : "▶"}</span>
+                    <Card key={subj} s={{marginBottom:8,display:"flex",alignItems:"center",gap:12,padding:13}}>
+                      <div style={{flex:1,fontSize:13,fontWeight:600}}>{subj}</div>
+                      <div style={{fontSize:18,fontWeight:800,color}}>{g}/20</div>
+                      <div style={{width:60,height:6,borderRadius:3,background:C.border,overflow:"hidden"}}>
+                        <div style={{width:(g/20*100)+"%",height:"100%",background:color,borderRadius:3}}/>
                       </div>
-                      {open && (
-                        <div style={{ padding: "0 16px 14px", borderTop: "1px solid " + Z.bd }}>
-                          {si.length === 0 ? <div style={{ padding: "10px 0", fontSize: 11, color: Z.d }}>Aucun élève</div> :
-                            si.map(s => (
-                              <div key={s.id} onClick={() => startE(s)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid " + Z.bd, cursor: "pointer" }}>
-                                <div style={{ width: 28, height: 28, borderRadius: 7, background: Z.b + "18", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 11 }}>{(s.name || "?")[0]}</div>
-                                <div style={{ flex: 1 }}><div style={{ fontSize: 12, fontWeight: 700 }}>{s.name}</div><div style={{ fontSize: 10, color: Z.d }}>{s.id}</div></div>
-                                <span style={{ fontSize: 10, color: ac }}>✏️</span>
-                              </div>
-                            ))}
-                          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                            <Btn onClick={() => { startC("student"); setFd(p => ({ ...p, cls: c })); }} color={ac} s={{ fontSize: 10, padding: "8px 14px" }}>+ Élève ici</Btn>
-                            {si.length === 0 && <Btn onClick={() => delCls(c)} outline color={Z.r} s={{ fontSize: 10, padding: "8px 14px" }}>🗑️</Btn>}
-                          </div>
-                        </div>
-                      )}
-                    </Cd>
+                    </Card>
                   );
                 })}
-                {msg && <div style={{ marginTop: 10, padding: 10, borderRadius: 8, background: (msg.startsWith("✅") || msg.startsWith("🗑") ? Z.g : Z.r) + "0c", fontSize: 12, color: msg.startsWith("✅") || msg.startsWith("🗑") ? Z.g : Z.r }}>{msg}</div>}
               </>
             )}
+          </>
+        )}
 
-            {/* USERS */}
-            {tab === "users" && (
-              <>
-                <div style={{ fontSize: 14, fontWeight: 800, fontFamily: FD, marginBottom: 10 }}>👥 Utilisateurs ({all.length})</div>
-                <input value={sr} onChange={e => setSr(e.target.value)} placeholder="🔍 Rechercher..." style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid " + Z.bd, background: "rgba(255,255,255,0.03)", color: Z.w, fontSize: 12, outline: "none", boxSizing: "border-box", marginBottom: 10 }} />
-                <div style={{ display: "flex", gap: 5, marginBottom: 14, flexWrap: "wrap" }}>
-                  {[{ v: "all", l: "Tous" }, { v: "student", l: "Élèves" }, { v: "parent", l: "Parents" }, { v: "teacher", l: "Profs" }, { v: "admin", l: "Admins" }].map(f => (
-                    <button key={f.v} onClick={() => setFR(f.v)} style={{ padding: "6px 14px", borderRadius: 20, border: "1px solid " + (fR === f.v ? ac : Z.bd), background: fR === f.v ? ac + "18" : "transparent", color: fR === f.v ? ac : Z.m, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>{f.l} ({f.v === "all" ? all.length : all.filter(u => u.role === f.v).length})</button>
-                  ))}
+        {tab==="orient"&&(
+          <CareerOrientation user={user} lv={lv}/>
+        )}
+      </div>
+      <BottomNav tabs={tabs} active={tab} onTab={t=>{setTab(t);setTutorMode(null);}} color={C.primary}/>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════
+// CAREER ORIENTATION (AI)
+// ═══════════════════════════════════════════
+const CareerOrientation = ({user, lv}) => {
+  const [step,setStep] = useState("intro");
+  const [answers,setAnswers] = useState({});
+  const [result,setResult] = useState("");
+  const [loading,setLoading] = useState(false);
+  const eligible = !["Maternelle","CP","CE1","CE2","CM1"].includes(lv);
+
+  const questions = [
+    {id:"fav",q:"Quelles sont vos 3 matières préférées ?",ph:"Ex: Mathématiques, Sciences, Anglais"},
+    {id:"activity",q:"Quelles activités vous passionnent hors école ?",ph:"Ex: Programmation, Sport, Musique, Dessin..."},
+    {id:"strength",q:"Quels sont vos points forts ?",ph:"Ex: Logique, Communication, Créativité, Organisation..."},
+    {id:"career",q:"Quels métiers vous attirent ?",ph:"Ex: Médecin, Ingénieur, Entrepreneur, Enseignant..."},
+    {id:"dream",q:"Votre rêve pour votre avenir ?",ph:"Décrivez librement votre vision..."}
+  ];
+
+  const generate = async () => {
+    setLoading(true); setStep("result");
+    const sys = `Tu es ${BRAND_SHORT}, conseiller d'orientation IA pour des élèves d'Afrique de l'Est (Djibouti). Tu guides les élèves vers des carrières alignées avec leurs forces et passions. Réponds en français avec enthousiasme et bienveillance. Inspire et motive. Inclus des opportunités locales (Djibouti, Afrique) et internationales. Format structuré avec emojis.`;
+    const prompt = `Élève: ${user.name} | Niveau: ${lv} | Classe: ${user.cls}
+Matières favorites: ${answers.fav||"Non précisé"}
+Activités: ${answers.activity||"Non précisé"}
+Points forts: ${answers.strength||"Non précisé"}
+Métiers envisagés: ${answers.career||"Non précisé"}
+Rêve d'avenir: ${answers.dream||"Non précisé"}
+
+Génère un profil d'orientation complet avec:
+1. 🎯 Profil de l'élève (2-3 phrases)
+2. 🚀 3 parcours de carrière recommandés (avec détails)
+3. 📚 Matières à renforcer
+4. 🛠️ Compétences à développer
+5. 🌍 Opportunités au Djibouti et en Afrique
+6. 💡 Conseil motivant personnalisé`;
+    const r = await callAI([{role:"user",content:prompt}],sys,2000);
+    setResult(r); setLoading(false);
+  };
+
+  if(!eligible) return (
+    <Card s={{textAlign:"center",padding:32}}>
+      <div style={{fontSize:40,marginBottom:12}}>🧭</div>
+      <div style={{fontSize:14,fontWeight:800,marginBottom:8}}>Orientation Professionnelle</div>
+      <div style={{fontSize:12,color:C.m}}>Disponible à partir de la 6ème</div>
+    </Card>
+  );
+
+  if(step==="intro") return (
+    <div>
+      <Card s={{background:"linear-gradient(135deg,"+C.purple+"15,"+C.teal+"10)",border:"1px solid "+C.purple+"30",marginBottom:16,padding:20}}>
+        <div style={{fontSize:32,marginBottom:10}}>🧭</div>
+        <div style={{fontSize:16,fontWeight:800,fontFamily:FD,marginBottom:8}}>Orientation IA — Votre Avenir</div>
+        <p style={{fontSize:12,color:C.m,lineHeight:1.7,marginBottom:14}}>Notre IA analyse vos forces, passions et rêves pour vous guider vers des carrières qui vous correspondent. Disponible pour {lv}.</p>
+        <Btn onClick={()=>setStep("q0")} color={C.purple} full>🚀 Commencer le questionnaire →</Btn>
+      </Card>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+        {["🏥 Médecine","🔬 Sciences","💻 Technologie","✈️ Aviation","🌍 Diplomatie","📚 Éducation","💼 Business","⚖️ Droit"].map(c=>(
+          <div key={c} style={{padding:"10px 12px",borderRadius:10,background:C.card,border:"1px solid "+C.border,fontSize:11,fontWeight:600,color:C.m}}>{c}</div>
+        ))}
+      </div>
+    </div>
+  );
+
+  if(step.startsWith("q")){
+    const qi = parseInt(step.slice(1));
+    const q = questions[qi];
+    return (
+      <div>
+        <div style={{marginBottom:16}}>
+          <div style={{display:"flex",gap:4,marginBottom:8}}>
+            {questions.map((_,i)=><div key={i} style={{flex:1,height:4,borderRadius:2,background:i<=qi?C.purple:C.border}}/>)}
+          </div>
+          <div style={{fontSize:10,color:C.m}}>Question {qi+1}/{questions.length}</div>
+        </div>
+        <Card s={{padding:20,marginBottom:14}}>
+          <div style={{fontSize:14,fontWeight:800,marginBottom:12,lineHeight:1.5}}>{q.q}</div>
+          <Textarea value={answers[q.id]||""} onChange={v=>setAnswers(p=>({...p,[q.id]:v}))} ph={q.ph} rows={3}/>
+        </Card>
+        <div style={{display:"flex",gap:8}}>
+          {qi>0&&<Btn onClick={()=>setStep("q"+(qi-1))} outline color={C.m} s={{flex:1}}>← Retour</Btn>}
+          {qi<questions.length-1?<Btn onClick={()=>setStep("q"+(qi+1))} color={C.purple} s={{flex:1}}>Suivant →</Btn>:<Btn onClick={generate} color={C.purple} s={{flex:1}}>🚀 Générer mon profil</Btn>}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+        <button onClick={()=>{setStep("intro");setResult("");setAnswers({});}} style={{background:"none",border:"none",color:C.purple,fontSize:12,fontWeight:700,cursor:"pointer"}}>← Recommencer</button>
+      </div>
+      {loading&&<Card s={{textAlign:"center",padding:32}}><div className="blink" style={{fontSize:14,color:C.purple}}><Spinner/>Génération de votre profil d'orientation...</div></Card>}
+      {result&&<Card s={{background:C.purple+"0a",border:"1px solid "+C.purple+"20"}}><div>{renderMd(result)}</div></Card>}
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════
+// PARENT PORTAL
+// ═══════════════════════════════════════════
+const ParentPortal = ({user, db, onOut}) => {
+  const [tab,setTab] = useState("home");
+  const [selChild,setSelChild] = useState(null);
+  const [coaching,setCoaching] = useState("");
+  const [coachLoading,setCoachLoading] = useState(false);
+  const [msgText,setMsgText] = useState("");
+  const [msgSent,setMsgSent] = useState(false);
+
+  const children = (user.childIds||[]).map(id=>({id,...(db.users[id]||{})})).filter(c=>c.name);
+
+  const getChildGrades = (childId, cls) => {
+    const grades = {};
+    Object.entries(db.grades||{}).forEach(([k,v])=>{
+      if(v[childId]!==undefined){ const subj=k.split("::")[1]; grades[subj]=v[childId]; }
+    });
+    return grades;
+  };
+  const getChildAttendance = (childId, cls) => {
+    const records = Object.entries(db.attendance||{}).filter(([k])=>k.startsWith(cls+"::")).map(([,v])=>v[childId]);
+    const present = records.filter(s=>s==="present").length;
+    return {total:records.length,present,rate:records.length?Math.round(present/records.length*100):null};
+  };
+
+  const generateCoaching = async (child) => {
+    setCoachLoading(true);
+    const grades = getChildGrades(child.id, child.cls);
+    const att = getChildAttendance(child.id, child.cls);
+    const gradesList = Object.entries(grades).map(([s,g])=>s+": "+g+"/20").join(", ")||"Pas encore de notes";
+    const sys = `Tu es ${BRAND_SHORT}, assistant coaching parental IA. Tu aides les parents à soutenir leurs enfants à la maison de manière positive et pratique. Réponds en français, avec bienveillance et conseils concrets. Utilise des emojis. Adapte les conseils à l'âge et au niveau de l'élève.`;
+    const prompt = `Parent: ${user.name}
+Enfant: ${child.name} | Classe: ${child.cls} | Niveau: ${c2l(child.cls)}
+Notes: ${gradesList}
+Taux de présence: ${att.rate!=null?att.rate+"%":"Non disponible"}
+
+Génère un coaching parental complet:
+1. 📊 Analyse de la situation de l'enfant
+2. 📅 Planning d'études à la maison (horaires quotidiens)
+3. 📖 Conseils par matière pour aider à la maison
+4. 💪 Stratégies de motivation et encouragement
+5. 🏠 Environnement d'apprentissage optimal
+6. 📱 Gestion du temps d'écran
+7. 💬 Comment communiquer avec l'enfant sur les études
+8. 🤝 Message d'encouragement pour l'enfant`;
+    const r = await callAI([{role:"user",content:prompt}],sys,2000);
+    setCoaching(r); setCoachLoading(false);
+  };
+
+  const tabs = [{id:"home",ic:"🏠",lb:"Accueil"},{id:"enfants",ic:"👧",lb:"Enfants"},{id:"finance",ic:"💰",lb:"Finance"},{id:"coach",ic:"🤝",lb:"IA Coach"},{id:"msgs",ic:"✉️",lb:"Messages"}];
+
+  return (
+    <div style={{minHeight:"100dvh",background:"linear-gradient(170deg,"+C.bg+",#0a1020)",color:C.w}}>
+      <Header t1={BRAND_SHORT+" — Parent"} t2={user.name} onOut={onOut}/>
+      <div style={{padding:"14px 16px 100px"}}>
+
+        {tab==="home"&&(
+          <>
+            <div style={{fontSize:15,fontWeight:800,fontFamily:FD,marginBottom:14}}>👋 Bonjour, {user.name.split(" ")[0]}</div>
+            {children.length===0&&<Card s={{textAlign:"center",padding:32,color:C.m}}><div style={{fontSize:32,marginBottom:8}}>👶</div><div>Aucun enfant associé à votre compte. Contactez l'administration.</div></Card>}
+            {children.map(ch=>{
+              const grades = getChildGrades(ch.id,ch.cls);
+              const att = getChildAttendance(ch.id,ch.cls);
+              const gradeVals = Object.values(grades);
+              const avg = gradeVals.length?(gradeVals.reduce((a,g)=>a+Number(g),0)/gradeVals.length).toFixed(1):null;
+              return (
+                <Card key={ch.id} s={{marginBottom:12,background:C.purple+"0a",border:"1px solid "+C.purple+"20",padding:18}}>
+                  <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+                    <div style={{width:46,height:46,borderRadius:12,background:C.purple+"25",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,fontWeight:800}}>{(ch.name||"?")[0]}</div>
+                    <div><div style={{fontSize:15,fontWeight:800}}>{ch.name}</div><div style={{fontSize:11,color:C.m}}>Classe: {ch.cls} • {c2l(ch.cls)}</div></div>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                    <div style={{padding:10,background:"rgba(0,0,0,0.2)",borderRadius:9,textAlign:"center"}}><div style={{fontSize:16,fontWeight:800,color:avg>=10?C.green:C.red}}>{avg||"—"}/20</div><div style={{fontSize:9,color:C.m}}>Moyenne</div></div>
+                    <div style={{padding:10,background:"rgba(0,0,0,0.2)",borderRadius:9,textAlign:"center"}}><div style={{fontSize:16,fontWeight:800,color:att.rate>=80?C.green:C.amber}}>{att.rate!=null?att.rate+"%":"—"}</div><div style={{fontSize:9,color:C.m}}>Présence</div></div>
+                  </div>
+                </Card>
+              );
+            })}
+            <Card s={{background:C.teal+"0a",border:"1px solid "+C.teal+"20",padding:16}}>
+              <div style={{fontSize:12,fontWeight:800,marginBottom:8}}>📢 Annonces Récentes</div>
+              {(db.announcements||[]).slice(-3).reverse().map((a,i)=>(
+                <div key={i} style={{padding:"8px 0",borderBottom:i<2?"1px solid "+C.border+"50":"none"}}>
+                  <div style={{fontSize:12,fontWeight:700}}>{a.title}</div>
+                  <div style={{fontSize:10,color:C.m}}>{a.body?.slice(0,60)}...</div>
+                  <div style={{fontSize:9,color:C.d,marginTop:2}}>{a.date}</div>
                 </div>
-                {flt.map(u => (
-                  <Cd key={u.id} onClick={() => startE(u)} s={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 10, padding: 13 }}>
-                    <div style={{ width: 38, height: 38, borderRadius: 10, background: rC(u.role) + "18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17 }}>{rI(u.role)}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700 }}>{u.name}</div>
-                      <div style={{ fontSize: 10, color: Z.d }}>{u.id} • {rL(u.role)}{u.cls ? " • " + u.cls : ""}{u.subject ? " • " + u.subject : ""}</div>
+              ))}
+              {(db.announcements||[]).length===0&&<div style={{fontSize:11,color:C.m}}>Aucune annonce récente</div>}
+            </Card>
+          </>
+        )}
+
+        {tab==="enfants"&&(
+          <>
+            <div style={{fontSize:15,fontWeight:800,fontFamily:FD,marginBottom:14}}>👧 Suivi des Enfants</div>
+            {children.map(ch=>{
+              const grades = getChildGrades(ch.id,ch.cls);
+              const att = getChildAttendance(ch.id,ch.cls);
+              const open = selChild===ch.id;
+              return (
+                <Card key={ch.id} s={{marginBottom:10,padding:0,overflow:"hidden"}}>
+                  <div onClick={()=>setSelChild(open?null:ch.id)} style={{padding:"14px 16px",display:"flex",alignItems:"center",gap:12,cursor:"pointer",background:open?C.purple+"0a":"transparent"}}>
+                    <div style={{width:40,height:40,borderRadius:10,background:C.purple+"20",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:800}}>{(ch.name||"?")[0]}</div>
+                    <div style={{flex:1}}><div style={{fontSize:13,fontWeight:700}}>{ch.name}</div><div style={{fontSize:10,color:C.m}}>{ch.cls}</div></div>
+                    <span style={{color:C.m}}>{open?"▼":"▶"}</span>
+                  </div>
+                  {open&&(
+                    <div style={{borderTop:"1px solid "+C.border,padding:"14px 16px"}}>
+                      <div style={{fontSize:12,fontWeight:800,marginBottom:10,color:C.purple}}>📊 Notes par matière</div>
+                      {Object.entries(grades).length===0&&<div style={{fontSize:11,color:C.m}}>Pas encore de notes</div>}
+                      {Object.entries(grades).map(([subj,g])=>{
+                        const color=g>=14?C.green:g>=10?C.amber:C.red;
+                        return <div key={subj} style={{display:"flex",alignItems:"center",gap:10,padding:"5px 0",borderBottom:"1px solid "+C.border+"40"}}>
+                          <span style={{flex:1,fontSize:11}}>{subj}</span>
+                          <span style={{fontSize:14,fontWeight:800,color}}>{g}/20</span>
+                        </div>;
+                      })}
+                      <div style={{marginTop:12,fontSize:12,fontWeight:800,color:C.blue}}>📅 Présences</div>
+                      <div style={{fontSize:11,color:C.m,marginTop:4}}>{att.present} présent(s) / {att.total} jours · {att.rate!=null?att.rate+"%":"N/A"}</div>
                     </div>
-                    <span style={{ fontSize: 12, color: ac }}>✏️</span>
-                  </Cd>
-                ))}
+                  )}
+                </Card>
+              );
+            })}
+          </>
+        )}
+
+        {tab==="finance"&&(
+          <>
+            <div style={{fontSize:15,fontWeight:800,fontFamily:FD,marginBottom:14}}>💰 Finance & Paiements</div>
+            {children.map(ch=>{
+              const fin = db.finance?.[ch.id]||{monthlyFee:15000,payments:[]};
+              const paid = (fin.payments||[]).reduce((a,p)=>a+Number(p.amount),0);
+              const annual = (fin.monthlyFee||15000)*10;
+              const pending = Math.max(0,annual-paid);
+              return (
+                <Card key={ch.id} s={{marginBottom:12}}>
+                  <div style={{fontSize:13,fontWeight:800,marginBottom:12}}>{ch.name} — {ch.cls}</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
+                    <div style={{padding:10,background:C.green+"0a",border:"1px solid "+C.green+"20",borderRadius:9,textAlign:"center"}}><div style={{fontSize:13,fontWeight:800,color:C.green}}>{paid.toLocaleString()}</div><div style={{fontSize:9,color:C.m}}>Payé (FDJ)</div></div>
+                    <div style={{padding:10,background:C.red+"0a",border:"1px solid "+C.red+"20",borderRadius:9,textAlign:"center"}}><div style={{fontSize:13,fontWeight:800,color:C.red}}>{pending.toLocaleString()}</div><div style={{fontSize:9,color:C.m}}>Restant (FDJ)</div></div>
+                    <div style={{padding:10,background:C.blue+"0a",border:"1px solid "+C.blue+"20",borderRadius:9,textAlign:"center"}}><div style={{fontSize:13,fontWeight:800,color:C.blue}}>{annual.toLocaleString()}</div><div style={{fontSize:9,color:C.m}}>Annuel (FDJ)</div></div>
+                  </div>
+                  <div style={{height:6,background:C.border,borderRadius:3,overflow:"hidden",marginBottom:12}}>
+                    <div style={{width:(paid/annual*100)+"%",height:"100%",background:C.green,borderRadius:3}}/>
+                  </div>
+                  <div style={{fontSize:12,fontWeight:800,marginBottom:8}}>Historique paiements</div>
+                  {(fin.payments||[]).length===0&&<div style={{fontSize:11,color:C.m}}>Aucun paiement enregistré</div>}
+                  {(fin.payments||[]).map((p,i)=>(
+                    <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid "+C.border+"40",fontSize:11}}>
+                      <span>{p.month||p.date}</span><span style={{color:C.green,fontWeight:700}}>+{Number(p.amount).toLocaleString()} FDJ</span><span style={{color:C.m}}>{p.date}</span>
+                    </div>
+                  ))}
+                  <div style={{marginTop:12}}>
+                    <Btn onClick={()=>alert("Fonctionnalité de paiement en ligne disponible prochainement")} color={C.green} s={{fontSize:11,padding:"8px 14px"}}>💳 Payer en ligne →</Btn>
+                  </div>
+                </Card>
+              );
+            })}
+          </>
+        )}
+
+        {tab==="coach"&&(
+          <>
+            <div style={{fontSize:15,fontWeight:800,fontFamily:FD,marginBottom:4}}>🤝 IA Coach Parental</div>
+            <div style={{fontSize:11,color:C.m,marginBottom:14}}>Conseils personnalisés pour soutenir votre enfant</div>
+            {children.length===0&&<Card s={{textAlign:"center",padding:24,color:C.m}}>Aucun enfant associé</Card>}
+            {children.map(ch=>(
+              <Card key={ch.id} s={{marginBottom:12}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                  <div><div style={{fontSize:13,fontWeight:800}}>{ch.name}</div><div style={{fontSize:10,color:C.m}}>{ch.cls}</div></div>
+                  <Btn onClick={()=>generateCoaching(ch)} color={C.teal} s={{fontSize:11,padding:"8px 14px"}} disabled={coachLoading}>
+                    {coachLoading?<><Spinner/>Génération...</>:"🤝 Obtenir conseils"}
+                  </Btn>
+                </div>
+              </Card>
+            ))}
+            {coaching&&(
+              <Card s={{background:C.teal+"0a",border:"1px solid "+C.teal+"20"}}>
+                <div style={{fontSize:12,fontWeight:800,color:C.teal,marginBottom:10}}>🤝 Votre coaching personnalisé</div>
+                <div>{renderMd(coaching)}</div>
+              </Card>
+            )}
+          </>
+        )}
+
+        {tab==="msgs"&&(
+          <>
+            <div style={{fontSize:15,fontWeight:800,fontFamily:FD,marginBottom:14}}>✉️ Messages & Annonces</div>
+            <Card s={{marginBottom:14}}>
+              <div style={{fontSize:12,fontWeight:800,marginBottom:8}}>📢 Annonces de l'école</div>
+              {(db.announcements||[]).length===0&&<div style={{fontSize:11,color:C.m}}>Aucune annonce</div>}
+              {[...(db.announcements||[])].reverse().map((a,i)=>(
+                <div key={i} style={{padding:"10px 0",borderBottom:i<(db.announcements.length-1)?"1px solid "+C.border+"50":"none"}}>
+                  <div style={{fontSize:12,fontWeight:700}}>{a.title}</div>
+                  <div style={{fontSize:11,color:C.m,lineHeight:1.5,marginTop:3}}>{a.body}</div>
+                  <div style={{fontSize:9,color:C.d,marginTop:4}}>{a.date} • {a.from||"Administration"}</div>
+                </div>
+              ))}
+            </Card>
+            <Card>
+              <div style={{fontSize:12,fontWeight:800,marginBottom:8}}>✉️ Envoyer un message</div>
+              <Textarea value={msgText} onChange={setMsgText} ph="Votre message à l'enseignant ou à l'administration..." rows={4}/>
+              {msgSent&&<div style={{fontSize:11,color:C.green,marginBottom:8}}>✅ Message envoyé !</div>}
+              <Btn onClick={()=>{if(msgText.trim()){setMsgSent(true);setMsgText("");setTimeout(()=>setMsgSent(false),3000);}}} color={C.purple} s={{fontSize:11,padding:"9px 14px"}}>📤 Envoyer</Btn>
+            </Card>
+          </>
+        )}
+      </div>
+      <BottomNav tabs={tabs} active={tab} onTab={setTab} color={C.purple}/>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════
+// TEACHER PORTAL
+// ═══════════════════════════════════════════
+const TeacherPortal = ({user, db, setDB, onOut}) => {
+  const [tab,setTab] = useState("home");
+  const [aiTab,setAiTab] = useState("quiz");
+  const [selCls,setSelCls] = useState((user.classes||[])[0]||"");
+  const [selSubj,setSelSubj] = useState(user.subject||"");
+  // Grades
+  const [gradeInputs,setGradeInputs] = useState({});
+  const [gradeSaved,setGradeSaved] = useState(false);
+  // Attendance
+  const [attDate,setAttDate] = useState(new Date().toISOString().slice(0,10));
+  const [attState,setAttState] = useState({});
+  const [attSaved,setAttSaved] = useState(false);
+  // Chapters
+  const [newChap,setNewChap] = useState("");
+  const [chapMsg,setChapMsg] = useState("");
+  // AI
+  const [quizDiff,setQuizDiff] = useState("moyen");
+  const [quizCount,setQuizCount] = useState("5");
+  const [quizChap,setQuizChap] = useState("");
+  const [quizResult,setQuizResult] = useState("");
+  const [quizLoading,setQuizLoading] = useState(false);
+  const [hwStudent,setHwStudent] = useState("");
+  const [hwAnswer,setHwAnswer] = useState("");
+  const [hwCorrect,setHwCorrect] = useState("");
+  const [hwResult,setHwResult] = useState("");
+  const [hwLoading,setHwLoading] = useState(false);
+  const [reportStudent,setReportStudent] = useState("");
+  const [reportResult,setReportResult] = useState("");
+  const [reportLoading,setReportLoading] = useState(false);
+  const [earlyResult,setEarlyResult] = useState("");
+  const [earlyLoading,setEarlyLoading] = useState(false);
+
+  const myClasses = user.classes||[];
+  const allUsers = Object.entries(db.users).map(([id,u])=>({id,...u}));
+  const studentsInClass = allUsers.filter(u=>u.role==="student"&&u.cls===selCls);
+  const totalStudents = allUsers.filter(u=>u.role==="student"&&myClasses.includes(u.cls)).length;
+
+  const gradeKey = selCls+"::"+selSubj;
+  const savedGrades = db.grades?.[gradeKey]||{};
+  const attKey = selCls+"::"+attDate;
+  const savedAtt = db.attendance?.[attKey]||{};
+
+  // Compute class stats
+  const classAvg = () => {
+    const g = Object.values(savedGrades).map(Number).filter(n=>!isNaN(n));
+    return g.length?(g.reduce((a,b)=>a+b,0)/g.length).toFixed(1):null;
+  };
+
+  const saveGrades = () => {
+    const updated = {...(db.grades||{}),[gradeKey]:{...(savedGrades||{}),...gradeInputs}};
+    setDB(p=>({...p,grades:updated})); setGradeSaved(true); setTimeout(()=>setGradeSaved(false),2000);
+  };
+
+  const saveAttendance = () => {
+    const updated = {...(db.attendance||{}),[attKey]:{...(savedAtt||{}),...attState}};
+    setDB(p=>({...p,attendance:updated})); setAttSaved(true); setTimeout(()=>setAttSaved(false),2000);
+  };
+
+  const addChapter = () => {
+    if(!newChap.trim()) return;
+    const key=selCls+"::"+selSubj;
+    const existing = getChapters(db,selCls,selSubj);
+    if(existing.includes(newChap.trim())){setChapMsg("❌ Chapitre déjà existant");return;}
+    setDB(p=>({...p,chapters:{...p.chapters,[key]:[...existing,newChap.trim()]}}));
+    setNewChap(""); setChapMsg("✅ Chapitre ajouté");
+    setTimeout(()=>setChapMsg(""),2000);
+  };
+
+  const generateQuiz = async () => {
+    setQuizLoading(true); setQuizResult("");
+    const chapters=getChapters(db,selCls,selSubj);
+    const chap=quizChap||chapters[0]||selSubj;
+    const sys=`Tu es ${BRAND_SHORT}, IA pédagogique. Génère des questions de quiz en français pour des élèves. Niveau: ${c2l(selCls)}. Matière: ${selSubj}. Format strict:\n[QUIZ]\nQ: question\nA) opt1\nB) opt2\nC) opt3\nD) opt4\nCORRECT: B\nEXPLICATION: explication détaillée\n[/QUIZ]\nGénère exactement ${quizCount} questions de niveau ${quizDiff}.`;
+    const r=await callAI([{role:"user",content:`Génère ${quizCount} questions ${quizDiff} sur "${chap}" pour ${selSubj} en ${c2l(selCls)}.`}],sys,2000);
+    setQuizResult(r); setQuizLoading(false);
+  };
+
+  const correctHomework = async () => {
+    if(!hwAnswer.trim()||!hwCorrect.trim()) return;
+    setHwLoading(true); setHwResult("");
+    const sys=`Tu es ${BRAND_SHORT}, correcteur pédagogique IA. Analyse la réponse d'un élève et fournis une correction constructive en français. Sois encourageant mais précis.`;
+    const r=await callAI([{role:"user",content:`Matière: ${selSubj} | Classe: ${selCls}\nRéponse de l'élève:\n${hwAnswer}\n\nRéponse correcte/attendue:\n${hwCorrect}\n\nNote sur 20 et explique ce qui est juste et ce qui doit être amélioré.`}],sys,1000);
+    setHwResult(r); setHwLoading(false);
+  };
+
+  const generateReport = async () => {
+    const stu = allUsers.find(u=>u.id===reportStudent);
+    if(!stu) return;
+    setReportLoading(true); setReportResult("");
+    const grades = {};
+    Object.entries(db.grades||{}).forEach(([k,v])=>{ if(v[reportStudent]!==undefined){const subj=k.split("::")[1];grades[subj]=v[reportStudent];}});
+    const att = Object.entries(db.attendance||{}).filter(([k])=>k.startsWith(stu.cls+"::")).map(([,v])=>v[reportStudent]);
+    const attRate = att.length?Math.round(att.filter(s=>s==="present").length/att.length*100):null;
+    const gradeStr=Object.entries(grades).map(([s,g])=>s+": "+g+"/20").join(", ")||"Pas de notes";
+    const sys=`Tu es ${BRAND_SHORT}, IA rédacteur de bulletins scolaires. Rédige des commentaires de bulletin en français, professionnels et bienveillants. Inclus: appréciation générale, points forts, axes de progrès, encouragements.`;
+    const r=await callAI([{role:"user",content:`Élève: ${stu.name} | Classe: ${stu.cls} | Année: ${db.year||"2025-2026"}\nNotes: ${gradeStr}\nTaux de présence: ${attRate!=null?attRate+"%":"N/A"}\n\nRédige le commentaire complet du bulletin (prof principal + appréciation générale).`}],sys,1000);
+    setReportResult(r); setReportLoading(false);
+  };
+
+  const generateEarlyDetection = async () => {
+    setEarlyLoading(true); setEarlyResult("");
+    const students = studentsInClass;
+    const sys=`Tu es ${BRAND_SHORT}, système de détection précoce des difficultés scolaires. Analyse les données et identifie les élèves à risque. IMPORTANT: tu fournis des indicateurs éducatifs uniquement, pas de diagnostic médical. Réponds en français avec des recommandations concrètes pour les enseignants.`;
+    const studentData = students.map(s=>{
+      const grades={};
+      Object.entries(db.grades||{}).forEach(([k,v])=>{ if(v[s.id]!==undefined){const subj=k.split("::")[1];grades[subj]=v[s.id];}});
+      const att=Object.entries(db.attendance||{}).filter(([k])=>k.startsWith(s.cls+"::")).map(([,v])=>v[s.id]);
+      const attRate=att.length?Math.round(att.filter(x=>x==="present").length/att.length*100):null;
+      const avg=Object.values(grades).length?(Object.values(grades).reduce((a,b)=>a+Number(b),0)/Object.values(grades).length).toFixed(1):null;
+      return `${s.name}: moyenne=${avg||"N/A"}/20, présence=${attRate!=null?attRate+"%":"N/A"}, notes=${JSON.stringify(grades)||"{}"}`;
+    }).join("\n");
+    const r=await callAI([{role:"user",content:`Classe: ${selCls}\nDonnées élèves:\n${studentData}\n\nAnalyse et génère:\n1. Score de risque par élève (0-10)\n2. Indicateurs identifiés\n3. Plan d'intervention recommandé\n4. Message à envoyer aux parents concernés`}],sys,2000);
+    setEarlyResult(r); setEarlyLoading(false);
+  };
+
+  const tabs = [{id:"home",ic:"🏠",lb:"Accueil"},{id:"cours",ic:"📚",lb:"Cours"},{id:"notes",ic:"📊",lb:"Notes"},{id:"presence",ic:"✅",lb:"Présence"},{id:"ia",ic:"🤖",lb:"IA Outils"}];
+
+  return (
+    <div style={{minHeight:"100dvh",background:"linear-gradient(170deg,"+C.bg+",#0a1020)",color:C.w}}>
+      <Header t1={BRAND_SHORT+" — Enseignant"} t2={user.name+" • "+user.subject} onOut={onOut}/>
+      <div style={{padding:"14px 16px 100px"}}>
+
+        {/* Class + Subject selector (sticky context) */}
+        {tab!=="home"&&<Card s={{marginBottom:12,padding:12}}>
+          <div style={{display:"flex",gap:8}}>
+            <div style={{flex:1}}>
+              <Sel value={selCls} onChange={setSelCls} options={myClasses}/>
+            </div>
+            <div style={{flex:1}}>
+              <Sel value={selSubj} onChange={setSelSubj} options={[user.subject]}/>
+            </div>
+          </div>
+        </Card>}
+
+        {tab==="home"&&(
+          <>
+            <Card s={{background:"linear-gradient(135deg,"+C.amber+"15,"+C.orange+"10)",border:"1px solid "+C.amber+"30",marginBottom:14,padding:20}}>
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                <div style={{width:48,height:48,borderRadius:14,background:C.amber+"25",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26}}>📚</div>
+                <div><div style={{fontSize:16,fontWeight:800,fontFamily:FD}}>Bonjour, {user.name.split(" ")[0]} !</div><div style={{fontSize:11,color:C.m}}>{user.subject} • {myClasses.length} classes</div></div>
+              </div>
+            </Card>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+              <StatCard icon="👥" value={totalStudents} label="Mes élèves" color={C.blue}/>
+              <StatCard icon="🏫" value={myClasses.length} label="Mes classes" color={C.amber}/>
+            </div>
+            <div style={{fontSize:13,fontWeight:800,marginBottom:10}}>🏫 Mes Classes</div>
+            {myClasses.map(cls=>{
+              const stu=allUsers.filter(u=>u.role==="student"&&u.cls===cls);
+              return <Card key={cls} s={{marginBottom:8,display:"flex",alignItems:"center",gap:10,padding:13}}>
+                <div style={{width:36,height:36,borderRadius:9,background:C.amber+"18",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:13}}>{stu.length}</div>
+                <div style={{flex:1}}><div style={{fontSize:13,fontWeight:700}}>{cls}</div><div style={{fontSize:10,color:C.m}}>{c2l(cls)} • {stu.length} élèves</div></div>
+              </Card>;
+            })}
+          </>
+        )}
+
+        {tab==="cours"&&(
+          <>
+            <div style={{fontSize:14,fontWeight:800,fontFamily:FD,marginBottom:4}}>📚 {selSubj} — {selCls}</div>
+            <div style={{fontSize:11,color:C.m,marginBottom:12}}>Chapitres du programme</div>
+            {getChapters(db,selCls,selSubj).map((ch,i)=>(
+              <Card key={i} s={{marginBottom:6,display:"flex",alignItems:"center",gap:10,padding:12}}>
+                <div style={{width:26,height:26,borderRadius:7,background:C.green+"18",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:800,color:C.green}}>{i+1}</div>
+                <span style={{flex:1,fontSize:12,fontWeight:600}}>{ch}</span>
+              </Card>
+            ))}
+            <Card s={{marginTop:12,padding:14}}>
+              <div style={{fontSize:12,fontWeight:800,marginBottom:8}}>➕ Ajouter un chapitre</div>
+              <div style={{display:"flex",gap:8}}>
+                <input value={newChap} onChange={e=>setNewChap(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addChapter()} placeholder="Nom du chapitre" style={{flex:1,padding:"10px 12px",borderRadius:8,border:"1.5px solid "+C.border,background:"rgba(255,255,255,0.04)",color:C.w,fontSize:12,outline:"none"}}/>
+                <Btn onClick={addChapter} color={C.green} s={{fontSize:11,padding:"10px 14px"}}>+</Btn>
+              </div>
+              {chapMsg&&<div style={{fontSize:11,color:chapMsg[0]==="✅"?C.green:C.red,marginTop:6}}>{chapMsg}</div>}
+            </Card>
+          </>
+        )}
+
+        {tab==="notes"&&(
+          <>
+            <div style={{fontSize:14,fontWeight:800,fontFamily:FD,marginBottom:4}}>📊 Carnet de Notes</div>
+            {classAvg()&&<Card s={{marginBottom:12,background:C.green+"0a",border:"1px solid "+C.green+"20",padding:12,textAlign:"center"}}><span style={{fontSize:14,fontWeight:800,color:C.green}}>Moyenne classe: {classAvg()}/20</span></Card>}
+            <div style={{fontSize:11,color:C.m,marginBottom:10}}>{selSubj} • {selCls} • {studentsInClass.length} élèves</div>
+            {studentsInClass.length===0&&<Card s={{textAlign:"center",padding:24,color:C.m}}>Aucun élève dans cette classe</Card>}
+            {studentsInClass.map(s=>{
+              const cur=gradeInputs[s.id]!==undefined?gradeInputs[s.id]:savedGrades[s.id]!==undefined?String(savedGrades[s.id]):"";
+              const gNum=Number(cur);
+              const gc=!cur?"":gNum>=14?C.green:gNum>=10?C.amber:C.red;
+              return (
+                <Card key={s.id} s={{marginBottom:6,display:"flex",alignItems:"center",gap:10,padding:12}}>
+                  <div style={{width:34,height:34,borderRadius:8,background:C.amber+"18",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:13}}>{(s.name||"?")[0]}</div>
+                  <div style={{flex:1}}><div style={{fontSize:12,fontWeight:700}}>{s.name}</div><div style={{fontSize:9,color:C.d}}>{s.id}</div></div>
+                  <input value={cur} onChange={e=>{const v=e.target.value;setGradeInputs(p=>({...p,[s.id]:v}));}} placeholder="/20" type="number" min="0" max="20" step="0.5"
+                    style={{width:60,padding:"7px 8px",borderRadius:8,border:"1.5px solid "+(gc||C.border),background:"rgba(255,255,255,0.04)",color:gc||C.w,fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
+                </Card>
+              );
+            })}
+            {studentsInClass.length>0&&<div style={{marginTop:12,display:"flex",gap:8,alignItems:"center"}}>
+              <Btn onClick={saveGrades} color={C.green}>💾 Sauvegarder les notes</Btn>
+              {gradeSaved&&<span style={{fontSize:11,color:C.green}}>✅ Sauvegardé !</span>}
+            </div>}
+          </>
+        )}
+
+        {tab==="presence"&&(
+          <>
+            <div style={{fontSize:14,fontWeight:800,fontFamily:FD,marginBottom:4}}>✅ Feuille de Présence</div>
+            <div style={{marginBottom:12}}>
+              <Inp label="Date" value={attDate} onChange={setAttDate} type="date"/>
+            </div>
+            <div style={{fontSize:11,color:C.m,marginBottom:10}}>{selCls} • {studentsInClass.length} élèves</div>
+            {studentsInClass.length===0&&<Card s={{textAlign:"center",padding:24,color:C.m}}>Aucun élève dans cette classe</Card>}
+            {studentsInClass.map(s=>{
+              const cur=attState[s.id]||savedAtt[s.id]||"present";
+              const colors={present:C.green,absent:C.red,late:C.amber};
+              return (
+                <Card key={s.id} s={{marginBottom:6,display:"flex",alignItems:"center",gap:10,padding:12}}>
+                  <div style={{width:34,height:34,borderRadius:8,background:colors[cur]+"18",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>{cur==="present"?"✅":cur==="absent"?"❌":"⏰"}</div>
+                  <div style={{flex:1}}><div style={{fontSize:12,fontWeight:700}}>{s.name}</div></div>
+                  <div style={{display:"flex",gap:4}}>
+                    {["present","absent","late"].map(st=>(
+                      <button key={st} onClick={()=>setAttState(p=>({...p,[s.id]:st}))} style={{padding:"5px 10px",borderRadius:7,border:"1px solid "+(cur===st?colors[st]:C.border),background:cur===st?colors[st]+"20":"transparent",color:cur===st?colors[st]:C.m,fontSize:9,fontWeight:700,cursor:"pointer"}}>
+                        {st==="present"?"✅ Prés":st==="absent"?"❌ Abs":"⏰ Tard"}
+                      </button>
+                    ))}
+                  </div>
+                </Card>
+              );
+            })}
+            {studentsInClass.length>0&&<div style={{marginTop:12,display:"flex",gap:8,alignItems:"center"}}>
+              <Btn onClick={saveAttendance} color={C.teal}>💾 Enregistrer</Btn>
+              {attSaved&&<span style={{fontSize:11,color:C.green}}>✅ Sauvegardé !</span>}
+            </div>}
+          </>
+        )}
+
+        {tab==="ia"&&(
+          <>
+            <div style={{fontSize:14,fontWeight:800,fontFamily:FD,marginBottom:12}}>🤖 Outils IA Enseignant</div>
+            <div style={{display:"flex",gap:6,marginBottom:14,overflowX:"auto",paddingBottom:4}}>
+              {[{id:"quiz",l:"Générateur Quiz"},{id:"hw",l:"Correction Devoirs"},{id:"report",l:"Bulletins IA"},{id:"detect",l:"Détection Précoce"}].map(t=>(
+                <button key={t.id} onClick={()=>setAiTab(t.id)} style={{padding:"8px 14px",borderRadius:20,border:"1px solid "+(aiTab===t.id?C.primary:C.border),background:aiTab===t.id?C.primary+"20":"transparent",color:aiTab===t.id?C.primary:C.m,fontSize:11,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>{t.l}</button>
+              ))}
+            </div>
+
+            {aiTab==="quiz"&&(
+              <Card>
+                <div style={{fontSize:12,fontWeight:800,marginBottom:12}}>❓ Générateur de Quiz IA</div>
+                <Sel label="Chapitre" value={quizChap} onChange={setQuizChap} options={getChapters(db,selCls,selSubj)}/>
+                <Sel label="Difficulté" value={quizDiff} onChange={setQuizDiff} options={["facile","moyen","difficile"]}/>
+                <Sel label="Nombre de questions" value={quizCount} onChange={setQuizCount} options={["3","5","10"]}/>
+                <Btn onClick={generateQuiz} color={C.primary} disabled={quizLoading} s={{marginBottom:12}}>
+                  {quizLoading?<><Spinner/>Génération...</>:"✨ Générer le quiz"}
+                </Btn>
+                {quizResult&&<div style={{background:C.primary+"08",border:"1px solid "+C.primary+"20",borderRadius:10,padding:14}}><div>{renderMd(quizResult)}</div></div>}
+              </Card>
+            )}
+
+            {aiTab==="hw"&&(
+              <Card>
+                <div style={{fontSize:12,fontWeight:800,marginBottom:12}}>📝 Correction de Devoirs IA</div>
+                <Textarea label="Réponse de l'élève" value={hwAnswer} onChange={setHwAnswer} ph="Collez la réponse de l'élève ici..." rows={4}/>
+                <Textarea label="Réponse correcte attendue" value={hwCorrect} onChange={setHwCorrect} ph="Indiquez la réponse ou les critères attendus..." rows={3}/>
+                <Btn onClick={correctHomework} color={C.amber} disabled={hwLoading||!hwAnswer.trim()||!hwCorrect.trim()} s={{marginBottom:12}}>
+                  {hwLoading?<><Spinner/>Correction...</>:"📝 Corriger avec l'IA"}
+                </Btn>
+                {hwResult&&<Card s={{background:C.amber+"0a",border:"1px solid "+C.amber+"20"}}><div>{renderMd(hwResult)}</div></Card>}
+              </Card>
+            )}
+
+            {aiTab==="report"&&(
+              <Card>
+                <div style={{fontSize:12,fontWeight:800,marginBottom:12}}>📋 Bulletins IA</div>
+                <Sel label="Sélectionner l'élève" value={reportStudent} onChange={setReportStudent} options={studentsInClass.map(s=>({v:s.id,l:s.name}))}/>
+                <Btn onClick={generateReport} color={C.teal} disabled={reportLoading||!reportStudent} s={{marginBottom:12}}>
+                  {reportLoading?<><Spinner/>Génération...</>:"📋 Générer le bulletin"}
+                </Btn>
+                {reportResult&&<Card s={{background:C.teal+"0a",border:"1px solid "+C.teal+"20"}}><div>{renderMd(reportResult)}</div></Card>}
+              </Card>
+            )}
+
+            {aiTab==="detect"&&(
+              <Card>
+                <div style={{fontSize:12,fontWeight:800,marginBottom:6}}>🔍 Détection Précoce des Difficultés</div>
+                <p style={{fontSize:11,color:C.m,lineHeight:1.5,marginBottom:12}}>Analyse automatique des données de la classe pour identifier les élèves nécessitant un soutien. Indicateurs éducatifs uniquement — pas de diagnostic médical.</p>
+                <Btn onClick={generateEarlyDetection} color={C.red} disabled={earlyLoading} s={{marginBottom:12}}>
+                  {earlyLoading?<><Spinner/>Analyse en cours...</>:"🔍 Analyser la classe"}
+                </Btn>
+                {earlyResult&&<Card s={{background:C.red+"0a",border:"1px solid "+C.red+"20"}}><div>{renderMd(earlyResult)}</div></Card>}
+              </Card>
+            )}
+          </>
+        )}
+      </div>
+      <BottomNav tabs={tabs} active={tab} onTab={t=>{setTab(t);}} color={C.amber}/>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════
+// ADMIN PORTAL
+// ═══════════════════════════════════════════
+const AdminPortal = ({user, db, setDB, onOut}) => {
+  const [tab,setTab] = useState("home");
+  const [subTab,setSubTab] = useState("classes");
+  // User management
+  const [cMode,setCMode] = useState(null); // "student"|"parent"|"teacher"|"admin"|null
+  const [editId,setEditId] = useState(null);
+  const [form,setForm] = useState({});
+  const [formMsg,setFormMsg] = useState("");
+  const [showPw,setShowPw] = useState(false);
+  const [delConfirm,setDelConfirm] = useState(null);
+  const [search,setSearch] = useState("");
+  const [roleFilter,setRoleFilter] = useState("all");
+  // Class mgmt
+  const [newClass,setNewClass] = useState("");
+  const [classMsg,setClassMsg] = useState("");
+  // Communication
+  const [annTitle,setAnnTitle] = useState("");
+  const [annBody,setAnnBody] = useState("");
+  const [annTarget,setAnnTarget] = useState("all");
+  const [annSent,setAnnSent] = useState(false);
+  // Finance
+  const [finChild,setFinChild] = useState("");
+  const [finAmount,setFinAmount] = useState("");
+  const [finMonth,setFinMonth] = useState("");
+  const [finMsg,setFinMsg] = useState("");
+  // Analytics
+  const [analyticsResult,setAnalyticsResult] = useState("");
+  const [analyticsLoading,setAnalyticsLoading] = useState(false);
+  // Settings
+  const [schoolName,setSchoolName] = useState(db.schoolName||"Nouvelle École Champion");
+  const [yearSetting,setYearSetting] = useState(db.year||"2025-2026");
+
+  const allUsers = Object.entries(db.users).map(([id,u])=>({id,...u}));
+  const students = allUsers.filter(u=>u.role==="student");
+  const parents = allUsers.filter(u=>u.role==="parent");
+  const teachers = allUsers.filter(u=>u.role==="teacher");
+  const admins = allUsers.filter(u=>u.role==="admin");
+  const filtered = allUsers.filter(u=>{
+    if(roleFilter!=="all"&&u.role!==roleFilter) return false;
+    if(search&&!(u.name||"").toLowerCase().includes(search.toLowerCase())&&!u.id.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+  const studentsInClass = cls => students.filter(s=>s.cls===cls);
+
+  const startCreate = role => {
+    const id=genId(db.users,role);
+    const base={id,pw:"",name:"",role};
+    if(role==="student") Object.assign(base,{cls:"",parentId:"",dob:"",gender:""});
+    if(role==="parent") Object.assign(base,{childIds:[]});
+    if(role==="teacher") Object.assign(base,{subject:"",classes:[]});
+    setForm(base); setCMode(role); setEditId(null); setFormMsg("");
+  };
+  const startEdit = u => { setForm({...u}); setEditId(u.id); setCMode(null); setFormMsg(""); setDelConfirm(null); };
+
+  const saveUser = () => {
+    const d=form;
+    if(!(d.name||"").trim()){setFormMsg("❌ Nom obligatoire");return;}
+    if(!(d.pw||"").trim()||d.pw.length<4){setFormMsg("❌ Mot de passe min 4 caractères");return;}
+    if(d.role==="student"&&!d.cls){setFormMsg("❌ Classe obligatoire");return;}
+    if(d.role==="teacher"&&!d.subject){setFormMsg("❌ Matière obligatoire");return;}
+    if(d.role==="teacher"&&(!d.classes||!d.classes.length)){setFormMsg("❌ Sélectionner au moins 1 classe");return;}
+    const nu={...db.users};
+    const ud={pw:d.pw.trim(),role:d.role,name:d.name.trim()};
+    if(d.role==="student"){ud.cls=d.cls;ud.parentId=d.parentId||"";ud.dob=d.dob||"";ud.gender=d.gender||"";
+      if(d.parentId&&nu[d.parentId]){const pr={...nu[d.parentId]};if(!pr.childIds)pr.childIds=[];if(!pr.childIds.includes(d.id))pr.childIds=[...pr.childIds,d.id];nu[d.parentId]=pr;}
+      if(editId){const old=(db.users[d.id]||{}).parentId;if(old&&old!==d.parentId&&nu[old])nu[old]={...nu[old],childIds:(nu[old].childIds||[]).filter(c=>c!==d.id)};}}
+    if(d.role==="parent"){ud.childIds=d.childIds||[];(d.childIds||[]).forEach(c=>{if(nu[c])nu[c]={...nu[c],parentId:d.id};});}
+    if(d.role==="teacher"){ud.subject=d.subject;ud.classes=d.classes||[];}
+    nu[d.id]=ud;
+    setDB(p=>({...p,users:nu}));
+    setFormMsg("✅ "+(cMode?"Créé":"Modifié")+": "+d.name+" ("+d.id+")");
+    setCMode(null); setEditId(null);
+  };
+
+  const deleteUser = id => {
+    if(id===user.uid){setFormMsg("❌ Impossible de supprimer votre propre compte");return;}
+    const u=db.users[id]; const nu={...db.users};
+    if(u.role==="student"&&u.parentId&&nu[u.parentId])nu[u.parentId]={...nu[u.parentId],childIds:(nu[u.parentId].childIds||[]).filter(c=>c!==id)};
+    if(u.role==="parent")(u.childIds||[]).forEach(c=>{if(nu[c])nu[c]={...nu[c],parentId:""};});
+    delete nu[id]; setDB(p=>({...p,users:nu})); setFormMsg("🗑️ Supprimé"); setEditId(null); setDelConfirm(null);
+  };
+
+  const addClass = () => {
+    if(!newClass.trim()){setClassMsg("❌ Nom vide");return;}
+    if((db.classes||[]).includes(newClass.trim())){setClassMsg("❌ Classe déjà existante");return;}
+    setDB(p=>({...p,classes:[...p.classes,newClass.trim()]}));setNewClass("");setClassMsg("✅ Classe créée");setTimeout(()=>setClassMsg(""),2000);
+  };
+  const removeClass = cls => {
+    if(studentsInClass(cls).length){setClassMsg("❌ Impossible: "+studentsInClass(cls).length+" élève(s) dans cette classe");return;}
+    setDB(p=>({...p,classes:p.classes.filter(c=>c!==cls)}));setClassMsg("🗑️ Classe supprimée");setTimeout(()=>setClassMsg(""),2000);
+  };
+
+  const sendAnnouncement = () => {
+    if(!annTitle.trim()||!annBody.trim()) return;
+    const ann={id:Date.now()+"",title:annTitle.trim(),body:annBody.trim(),target:annTarget,date:new Date().toLocaleDateString("fr-FR"),from:user.name};
+    setDB(p=>({...p,announcements:[...(p.announcements||[]),ann]}));
+    setAnnTitle(""); setAnnBody(""); setAnnSent(true); setTimeout(()=>setAnnSent(false),3000);
+  };
+
+  const savePayment = () => {
+    if(!finChild||!finAmount||!finMonth){setFinMsg("❌ Tous les champs sont requis");return;}
+    const payment={date:new Date().toLocaleDateString("fr-FR"),amount:Number(finAmount),month:finMonth};
+    const existing=db.finance?.[finChild]||{monthlyFee:15000,payments:[]};
+    setDB(p=>({...p,finance:{...(p.finance||{}),[finChild]:{...existing,payments:[...existing.payments,payment]}}}));
+    setFinChild(""); setFinAmount(""); setFinMonth(""); setFinMsg("✅ Paiement enregistré !");
+    setTimeout(()=>setFinMsg(""),3000);
+  };
+
+  const generateAnalytics = async () => {
+    setAnalyticsLoading(true); setAnalyticsResult("");
+    const totalGrades=Object.values(db.grades||{}).flatMap(g=>Object.values(g)).map(Number).filter(n=>!isNaN(n));
+    const overallAvg=totalGrades.length?(totalGrades.reduce((a,b)=>a+b,0)/totalGrades.length).toFixed(1):null;
+    const attRecords=Object.values(db.attendance||{}).flatMap(r=>Object.values(r));
+    const attRate=attRecords.length?Math.round(attRecords.filter(s=>s==="present").length/attRecords.length*100):null;
+    const sys=`Tu es ${BRAND_SHORT}, IA d'analyse scolaire. Tu analyses des données d'établissement et fournis des insights actionnables en français. Sois précis, structuré, et orienté solutions.`;
+    const r=await callAI([{role:"user",content:`École: ${db.schoolName||"ÉcoleAI"} | Année: ${db.year||"2025-2026"}
+Effectifs: ${students.length} élèves, ${teachers.length} enseignants, ${(db.classes||[]).length} classes
+Moyenne générale école: ${overallAvg||"N/A"}/20
+Taux de présence moyen: ${attRate!=null?attRate+"%":"N/A"}
+Paiements collectés: ${Object.values(db.finance||{}).reduce((a,f)=>(f.payments||[]).reduce((b,p)=>b+Number(p.amount),0)+a,0).toLocaleString()} FDJ
+
+Génère une analyse complète incluant:
+1. 📊 Tableau de bord performance globale
+2. ⚠️ Alertes et points d'attention
+3. 🎯 Recommandations prioritaires
+4. 📈 Tendances identifiées
+5. 🔮 Prévisions pour le trimestre`}],sys,2000);
+    setAnalyticsResult(r); setAnalyticsLoading(false);
+  };
+
+  const saveSettings = () => {
+    setDB(p=>({...p,schoolName:schoolName.trim(),year:yearSetting.trim()}));
+    alert("✅ Paramètres sauvegardés !");
+  };
+
+  const rColor = r=>r==="student"?C.blue:r==="parent"?C.purple:r==="teacher"?C.amber:C.green;
+  const rIcon = r=>r==="student"?"🎓":r==="parent"?"👨‍👩‍👧":r==="teacher"?"📚":"🏫";
+  const rLabel = r=>r==="student"?"Élève":r==="parent"?"Parent":r==="teacher"?"Enseignant":"Admin";
+
+  const tabs = [{id:"home",ic:"📊",lb:"Tableau"},{id:"users",ic:"👥",lb:"Utilisateurs"},{id:"finance",ic:"💰",lb:"Finance"},{id:"comms",ic:"📢",lb:"Comms"},{id:"more",ic:"⋯",lb:"Plus"}];
+
+  // User form
+  if(cMode||editId) return (
+    <div style={{minHeight:"100dvh",background:"linear-gradient(170deg,"+C.bg+",#0a1020)",color:C.w}}>
+      <Header t1={BRAND_SHORT+" — Admin"} t2={user.name} onOut={onOut}/>
+      <div style={{padding:"14px 16px 40px"}}>
+        <button onClick={()=>{setCMode(null);setEditId(null);setFormMsg("");}} style={{background:"none",border:"none",color:C.green,fontSize:12,fontWeight:700,cursor:"pointer",marginBottom:12}}>← Retour</button>
+        <Card s={{background:rColor(form.role)+"0a",border:"1px solid "+rColor(form.role)+"25",marginBottom:14,padding:16}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:28}}>{rIcon(form.role)}</span>
+            <div><div style={{fontSize:15,fontWeight:800,fontFamily:FD}}>{cMode?"Nouveau "+rLabel(form.role):"Modifier: "+form.name}</div><div style={{fontSize:11,color:C.m}}>ID: {form.id}</div></div>
+          </div>
+        </Card>
+        <Card s={{padding:18}}>
+          <Inp label="ID (auto)" value={form.id||""} onChange={()=>{}} dis/>
+          <Inp label="Nom complet *" value={form.name||""} onChange={v=>setForm({...form,name:v})} ph="Prénom Nom"/>
+          <div style={{marginBottom:12}}>
+            <label style={{fontSize:10,color:C.m,fontWeight:700,display:"block",marginBottom:4,textTransform:"uppercase"}}>Mot de passe * (min 4)</label>
+            <div style={{display:"flex",gap:8}}>
+              <input value={form.pw||""} onChange={e=>setForm({...form,pw:e.target.value})} type={showPw?"text":"password"} placeholder="Min 4 caractères"
+                style={{flex:1,padding:"11px 12px",borderRadius:9,border:"1.5px solid "+C.border,background:"rgba(255,255,255,0.04)",color:C.w,fontSize:13,outline:"none"}}/>
+              <button onClick={()=>setShowPw(!showPw)} style={{padding:"0 12px",borderRadius:9,border:"1px solid "+C.border,background:C.card,cursor:"pointer"}}>{showPw?"🙈":"👁️"}</button>
+            </div>
+          </div>
+          {form.role==="student"&&<>
+            <Sel label="Classe *" value={form.cls||""} onChange={v=>setForm({...form,cls:v})} options={db.classes||[]}/>
+            <Inp label="Date de naissance" value={form.dob||""} onChange={v=>setForm({...form,dob:v})} type="date"/>
+            <Sel label="Genre" value={form.gender||""} onChange={v=>setForm({...form,gender:v})} options={["Garçon","Fille"]}/>
+            <Sel label="Parent (optionnel)" value={form.parentId||""} onChange={v=>setForm({...form,parentId:v})} options={parents.map(p=>({v:p.id,l:p.name+" ("+p.id+")"}))}/>
+          </>}
+          {form.role==="parent"&&<div style={{marginBottom:12}}>
+            <label style={{fontSize:10,color:C.m,fontWeight:700,display:"block",marginBottom:8,textTransform:"uppercase"}}>Enfants</label>
+            <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+              {students.map(s=>{const sl=(form.childIds||[]).includes(s.id);return(
+                <button key={s.id} onClick={()=>setForm({...form,childIds:sl?(form.childIds||[]).filter(x=>x!==s.id):[...(form.childIds||[]),s.id]})}
+                  style={{padding:"6px 12px",borderRadius:8,border:"1.5px solid "+(sl?C.green:C.border),background:sl?C.green+"15":"transparent",color:sl?C.green:C.m,fontSize:11,fontWeight:700,cursor:"pointer"}}>
+                  {sl?"✓ ":""}{s.name} ({s.cls})
+                </button>);
+              })}
+            </div>
+          </div>}
+          {form.role==="teacher"&&<>
+            <Sel label="Matière *" value={form.subject||""} onChange={v=>setForm({...form,subject:v})} options={SUB_LIST}/>
+            <div style={{marginBottom:12}}>
+              <label style={{fontSize:10,color:C.m,fontWeight:700,display:"block",marginBottom:8,textTransform:"uppercase"}}>Classes * (min 1)</label>
+              <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                {(db.classes||[]).map(c=>{const s=(form.classes||[]).includes(c);return(
+                  <button key={c} onClick={()=>setForm({...form,classes:s?(form.classes||[]).filter(x=>x!==c):[...(form.classes||[]),c]})}
+                    style={{padding:"5px 10px",borderRadius:7,border:"1px solid "+(s?C.blue:C.border),background:s?C.blue+"15":"transparent",color:s?C.blue:C.m,fontSize:10,fontWeight:700,cursor:"pointer"}}>{c}</button>
+                );})}
+              </div>
+            </div>
+          </>}
+          {formMsg&&<div style={{padding:10,borderRadius:8,background:(formMsg.startsWith("✅")||formMsg.startsWith("🗑")?C.green:C.red)+"0c",fontSize:11,color:formMsg.startsWith("✅")||formMsg.startsWith("🗑")?C.green:C.red,marginBottom:12}}>{formMsg}</div>}
+          <Btn onClick={saveUser} color={C.green} full>{cMode?"✅ Créer":"💾 Sauvegarder"}</Btn>
+          {editId&&form.id!==user.uid&&(delConfirm===form.id?(
+            <div style={{marginTop:12,padding:14,borderRadius:10,background:C.red+"0c",border:"1px solid "+C.red+"20"}}>
+              <div style={{fontSize:12,fontWeight:800,color:C.red,marginBottom:8}}>⚠️ Confirmer la suppression ?</div>
+              <div style={{display:"flex",gap:8}}><Btn onClick={()=>deleteUser(form.id)} color={C.red} s={{flex:1}}>🗑️ Oui, supprimer</Btn><Btn onClick={()=>setDelConfirm(null)} outline color={C.m} s={{flex:1}}>Annuler</Btn></div>
+            </div>
+          ):<Btn onClick={()=>setDelConfirm(form.id)} outline color={C.red} full s={{marginTop:12}}>🗑️ Supprimer cet utilisateur</Btn>)}
+        </Card>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{minHeight:"100dvh",background:"linear-gradient(170deg,"+C.bg+",#0a1020)",color:C.w}}>
+      <Header t1={BRAND_SHORT+" — Admin"} t2={user.name+" • "+db.schoolName} onOut={onOut}/>
+      <div style={{padding:"14px 16px 100px"}}>
+
+        {tab==="home"&&(
+          <>
+            <div style={{fontSize:15,fontWeight:800,fontFamily:FD,marginBottom:14}}>📊 Tableau de Bord</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+              <StatCard icon="🎓" value={students.length} label="Élèves" color={C.blue}/>
+              <StatCard icon="📚" value={teachers.length} label="Enseignants" color={C.amber}/>
+              <StatCard icon="👨‍👩‍👧" value={parents.length} label="Parents" color={C.purple}/>
+              <StatCard icon="🏫" value={(db.classes||[]).length} label="Classes" color={C.green}/>
+            </div>
+            <Card s={{marginBottom:12,background:C.gold+"0a",border:"1px solid "+C.gold+"20"}}>
+              <div style={{fontSize:12,fontWeight:800,marginBottom:10}}>💰 Finance — Aperçu</div>
+              {(()=>{
+                const total=Object.entries(db.finance||{}).reduce((a,[,f])=>a+(f.payments||[]).reduce((b,p)=>b+Number(p.amount),0),0);
+                const fees=students.reduce((a,s)=>{const f=db.finance?.[s.id];return a+(f?.monthlyFee||15000)*10;},0);
+                return <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                  <div style={{padding:10,background:C.green+"0a",borderRadius:9,textAlign:"center"}}><div style={{fontSize:14,fontWeight:800,color:C.green}}>{total.toLocaleString()}</div><div style={{fontSize:9,color:C.m}}>Collecté (FDJ)</div></div>
+                  <div style={{padding:10,background:C.amber+"0a",borderRadius:9,textAlign:"center"}}><div style={{fontSize:14,fontWeight:800,color:C.amber}}>{Math.max(0,fees-total).toLocaleString()}</div><div style={{fontSize:9,color:C.m}}>Restant (FDJ)</div></div>
+                </div>;
+              })()}
+            </Card>
+            <Card s={{marginBottom:12}}>
+              <div style={{fontSize:12,fontWeight:800,marginBottom:10}}>📢 Dernières annonces</div>
+              {(db.announcements||[]).slice(-3).reverse().map((a,i)=>(
+                <div key={i} style={{padding:"7px 0",borderBottom:i<2?"1px solid "+C.border+"50":"none"}}>
+                  <div style={{fontSize:12,fontWeight:700}}>{a.title}</div>
+                  <div style={{fontSize:10,color:C.m}}>{a.date} • {a.from}</div>
+                </div>
+              ))}
+              {!(db.announcements||[]).length&&<div style={{fontSize:11,color:C.m}}>Aucune annonce</div>}
+            </Card>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              {[{r:"student",ic:"🎓",c:C.blue},{r:"teacher",ic:"📚",c:C.amber},{r:"parent",ic:"👨‍👩‍👧",c:C.purple},{r:"admin",ic:"🏫",c:C.green}].map(x=>(
+                <Card key={x.r} onClick={()=>startCreate(x.r)} s={{textAlign:"center",padding:16,background:x.c+"0a",border:"1px solid "+x.c+"20"}}>
+                  <div style={{fontSize:24,marginBottom:4}}>{x.ic}</div>
+                  <div style={{fontSize:11,fontWeight:800,color:x.c}}>+ {rLabel(x.r)}</div>
+                </Card>
+              ))}
+            </div>
+          </>
+        )}
+
+        {tab==="users"&&(
+          <>
+            <div style={{fontSize:14,fontWeight:800,fontFamily:FD,marginBottom:10}}>👥 Gestion Utilisateurs ({allUsers.length})</div>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher par nom ou ID..." style={{width:"100%",padding:"10px 12px",borderRadius:9,border:"1px solid "+C.border,background:"rgba(255,255,255,0.04)",color:C.w,fontSize:12,outline:"none",boxSizing:"border-box",marginBottom:10}}/>
+            <div style={{display:"flex",gap:5,marginBottom:12,overflowX:"auto",paddingBottom:4}}>
+              {[{v:"all",l:"Tous ("+allUsers.length+")"},{v:"student",l:"Élèves ("+students.length+")"},{v:"parent",l:"Parents ("+parents.length+")"},{v:"teacher",l:"Profs ("+teachers.length+")"},{v:"admin",l:"Admins ("+admins.length+")"}].map(f=>(
+                <button key={f.v} onClick={()=>setRoleFilter(f.v)} style={{padding:"6px 14px",borderRadius:20,border:"1px solid "+(roleFilter===f.v?C.green:C.border),background:roleFilter===f.v?C.green+"18":"transparent",color:roleFilter===f.v?C.green:C.m,fontSize:10,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>{f.l}</button>
+              ))}
+            </div>
+            {filtered.slice(0,50).map(u=>(
+              <Card key={u.id} onClick={()=>startEdit(u)} s={{marginBottom:7,display:"flex",alignItems:"center",gap:10,padding:12}}>
+                <div style={{width:36,height:36,borderRadius:9,background:rColor(u.role)+"18",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>{rIcon(u.role)}</div>
+                <div style={{flex:1}}><div style={{fontSize:12,fontWeight:700}}>{u.name}</div><div style={{fontSize:10,color:C.d}}>{u.id} • {rLabel(u.role)}{u.cls?" • "+u.cls:""}{u.subject?" • "+u.subject:""}</div></div>
+                <span style={{fontSize:12,color:C.green}}>✏️</span>
+              </Card>
+            ))}
+            {filtered.length===0&&<Card s={{textAlign:"center",padding:24,color:C.m}}>Aucun utilisateur trouvé</Card>}
+            <div style={{marginTop:12,display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              {["student","teacher","parent","admin"].map(r=>(
+                <Btn key={r} onClick={()=>startCreate(r)} color={rColor(r)} s={{fontSize:11,padding:"9px 12px"}}>+ {rLabel(r)}</Btn>
+              ))}
+            </div>
+          </>
+        )}
+
+        {tab==="finance"&&(
+          <>
+            <div style={{fontSize:14,fontWeight:800,fontFamily:FD,marginBottom:14}}>💰 Gestion Financière</div>
+            <Card s={{marginBottom:14}}>
+              <div style={{fontSize:12,fontWeight:800,marginBottom:10}}>➕ Enregistrer un paiement</div>
+              <Sel label="Élève" value={finChild} onChange={setFinChild} options={students.map(s=>({v:s.id,l:s.name+" ("+s.cls+")"}))}/>
+              <Inp label="Montant (FDJ)" value={finAmount} onChange={setFinAmount} type="number" ph="Ex: 15000"/>
+              <Inp label="Mois / Période" value={finMonth} onChange={setFinMonth} ph="Ex: Octobre 2025"/>
+              {finMsg&&<div style={{fontSize:11,color:finMsg[0]==="✅"?C.green:C.red,marginBottom:8}}>{finMsg}</div>}
+              <Btn onClick={savePayment} color={C.green}>✅ Enregistrer le paiement</Btn>
+            </Card>
+            <div style={{fontSize:13,fontWeight:800,marginBottom:10}}>📋 Situation par élève</div>
+            {students.map(s=>{
+              const fin=db.finance?.[s.id]||{monthlyFee:15000,payments:[]};
+              const paid=(fin.payments||[]).reduce((a,p)=>a+Number(p.amount),0);
+              const annual=(fin.monthlyFee||15000)*10;
+              const pct=Math.round(paid/annual*100);
+              return (
+                <Card key={s.id} s={{marginBottom:7,padding:12}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                    <div style={{flex:1}}><div style={{fontSize:12,fontWeight:700}}>{s.name}</div><div style={{fontSize:10,color:C.m}}>{s.cls}</div></div>
+                    <Badge color={paid>=annual?C.green:paid>0?C.amber:C.red}>{paid>=annual?"Soldé":paid>0?"Partiel":"Impayé"}</Badge>
+                  </div>
+                  <div style={{height:5,background:C.border,borderRadius:3,overflow:"hidden",marginBottom:4}}>
+                    <div style={{width:pct+"%",height:"100%",background:pct>=100?C.green:pct>50?C.amber:C.red,borderRadius:3}}/>
+                  </div>
+                  <div style={{fontSize:10,color:C.m}}>{paid.toLocaleString()} / {annual.toLocaleString()} FDJ ({pct}%)</div>
+                </Card>
+              );
+            })}
+          </>
+        )}
+
+        {tab==="comms"&&(
+          <>
+            <div style={{fontSize:14,fontWeight:800,fontFamily:FD,marginBottom:14}}>📢 Communications</div>
+            <Card s={{marginBottom:14}}>
+              <div style={{fontSize:12,fontWeight:800,marginBottom:10}}>✉️ Envoyer une annonce</div>
+              <Inp label="Titre" value={annTitle} onChange={setAnnTitle} ph="Titre de l'annonce"/>
+              <Textarea label="Message" value={annBody} onChange={setAnnBody} ph="Contenu de l'annonce..." rows={4}/>
+              <Sel label="Destinataires" value={annTarget} onChange={setAnnTarget} options={[{v:"all",l:"Tous"},{v:"student",l:"Élèves uniquement"},{v:"parent",l:"Parents uniquement"},{v:"teacher",l:"Enseignants uniquement"}]}/>
+              {annSent&&<div style={{fontSize:11,color:C.green,marginBottom:8}}>✅ Annonce envoyée !</div>}
+              <Btn onClick={sendAnnouncement} color={C.primary} disabled={!annTitle.trim()||!annBody.trim()}>📢 Envoyer l'annonce</Btn>
+            </Card>
+            <div style={{fontSize:13,fontWeight:800,marginBottom:10}}>📋 Historique ({(db.announcements||[]).length})</div>
+            {[...(db.announcements||[])].reverse().map((a,i)=>(
+              <Card key={i} s={{marginBottom:8}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+                  <div style={{fontSize:12,fontWeight:800}}>{a.title}</div>
+                  <Badge color={C.primary}>{a.target==="all"?"Tous":rLabel(a.target)}</Badge>
+                </div>
+                <div style={{fontSize:11,color:C.m,lineHeight:1.5}}>{a.body}</div>
+                <div style={{fontSize:10,color:C.d,marginTop:4}}>{a.date} • {a.from}</div>
+              </Card>
+            ))}
+            {!(db.announcements||[]).length&&<Card s={{textAlign:"center",padding:24,color:C.m}}>Aucune annonce envoyée</Card>}
+          </>
+        )}
+
+        {tab==="more"&&(
+          <>
+            <div style={{display:"flex",gap:6,marginBottom:14,overflowX:"auto",paddingBottom:4}}>
+              {[{id:"classes",l:"🏫 Classes"},{id:"analytics",l:"📈 Analyse IA"},{id:"settings",l:"⚙️ Paramètres"}].map(t=>(
+                <button key={t.id} onClick={()=>setSubTab(t.id)} style={{padding:"8px 14px",borderRadius:20,border:"1px solid "+(subTab===t.id?C.green:C.border),background:subTab===t.id?C.green+"18":"transparent",color:subTab===t.id?C.green:C.m,fontSize:11,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>{t.l}</button>
+              ))}
+            </div>
+
+            {subTab==="classes"&&(
+              <>
+                <div style={{fontSize:14,fontWeight:800,fontFamily:FD,marginBottom:10}}>🏫 Classes ({(db.classes||[]).length})</div>
+                <Card s={{marginBottom:12,padding:14}}>
+                  <div style={{fontSize:12,fontWeight:800,marginBottom:8}}>➕ Nouvelle classe</div>
+                  <div style={{display:"flex",gap:8}}>
+                    <input value={newClass} onChange={e=>setNewClass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addClass()} placeholder="Ex: 4ème C" style={{flex:1,padding:"10px 12px",borderRadius:8,border:"1.5px solid "+C.border,background:"rgba(255,255,255,0.04)",color:C.w,fontSize:12,outline:"none"}}/>
+                    <Btn onClick={addClass} color={C.green} s={{fontSize:11,padding:"10px 14px"}}>+</Btn>
+                  </div>
+                  {classMsg&&<div style={{fontSize:11,color:classMsg[0]==="✅"||classMsg[0]==="🗑"?C.green:C.red,marginTop:6}}>{classMsg}</div>}
+                </Card>
+                {(db.classes||[]).map(cls=>{
+                  const stu=studentsInClass(cls);
+                  return <Card key={cls} s={{marginBottom:7,display:"flex",alignItems:"center",gap:10,padding:13}}>
+                    <div style={{width:36,height:36,borderRadius:9,background:C.green+"18",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:13}}>{stu.length}</div>
+                    <div style={{flex:1}}><div style={{fontSize:13,fontWeight:700}}>{cls}</div><div style={{fontSize:10,color:C.m}}>{c2l(cls)} • {stu.length} élève(s)</div></div>
+                    {stu.length===0&&<button onClick={()=>removeClass(cls)} style={{padding:"5px 10px",borderRadius:7,border:"1px solid "+C.red+"30",background:C.red+"10",color:C.red,fontSize:10,cursor:"pointer"}}>🗑️</button>}
+                  </Card>;
+                })}
               </>
             )}
 
-            {/* CREATE */}
-            {tab === "create" && (
+            {subTab==="analytics"&&(
               <>
-                <div style={{ fontSize: 14, fontWeight: 800, fontFamily: FD, marginBottom: 14 }}>➕ Créer</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  {[{ r: "student", i: "🎓", l: "Élève", d: "Classe *", c: Z.b }, { r: "parent", i: "👨‍👩‍👧", l: "Parent", d: "Lié enfants", c: Z.p }, { r: "teacher", i: "📚", l: "Enseignant", d: "Matière+classes *", c: Z.a }, { r: "admin", i: "🏫", l: "Admin", d: "Gestion", c: ac }].map(r => (
-                    <Cd key={r.r} onClick={() => startC(r.r)} s={{ textAlign: "center", padding: 18, background: r.c + "08", border: "1px solid " + r.c + "18" }}>
-                      <div style={{ fontSize: 30, marginBottom: 6 }}>{r.i}</div>
-                      <div style={{ fontSize: 13, fontWeight: 800 }}>{r.l}</div>
-                      <div style={{ fontSize: 10, color: Z.m, marginTop: 4 }}>{r.d}</div>
-                    </Cd>
-                  ))}
-                </div>
-                <Cd s={{ marginTop: 14 }}>
-                  <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 8 }}>📋 Ordre</div>
-                  {["1. Classes (onglet Classes)", "2. Élèves (classe *)", "3. Parents (lier enfants)", "4. Enseignants (matière + classes *)", "5. Comptes utilisables IMMÉDIATEMENT"].map((s, i) => (
-                    <div key={i} style={{ fontSize: 11, color: Z.m, padding: "4px 0" }}>{s}</div>
-                  ))}
-                </Cd>
+                <div style={{fontSize:14,fontWeight:800,fontFamily:FD,marginBottom:4}}>📈 Analyse IA de l'École</div>
+                <p style={{fontSize:11,color:C.m,lineHeight:1.5,marginBottom:14}}>L'IA analyse toutes les données de votre établissement et génère des insights actionnables.</p>
+                <Btn onClick={generateAnalytics} color={C.primary} disabled={analyticsLoading} s={{marginBottom:14}}>
+                  {analyticsLoading?<><Spinner/>Analyse en cours...</>:"📈 Générer l'analyse IA"}
+                </Btn>
+                {analyticsResult&&<Card s={{background:C.primary+"0a",border:"1px solid "+C.primary+"20"}}><div>{renderMd(analyticsResult)}</div></Card>}
+              </>
+            )}
+
+            {subTab==="settings"&&(
+              <>
+                <div style={{fontSize:14,fontWeight:800,fontFamily:FD,marginBottom:14}}>⚙️ Paramètres</div>
+                <ApiKeyPanel/>
+                <Card s={{marginBottom:14}}>
+                  <div style={{fontSize:12,fontWeight:800,marginBottom:10}}>🏫 Informations de l'école</div>
+                  <Inp label="Nom de l'école" value={schoolName} onChange={setSchoolName} ph="Nom de l'école"/>
+                  <Inp label="Année scolaire" value={yearSetting} onChange={setYearSetting} ph="Ex: 2025-2026"/>
+                  <Btn onClick={saveSettings} color={C.green}>💾 Sauvegarder</Btn>
+                </Card>
+                <Card s={{background:C.red+"0a",border:"1px solid "+C.red+"20"}}>
+                  <div style={{fontSize:12,fontWeight:800,color:C.red,marginBottom:8}}>⚠️ Zone danger</div>
+                  <Btn onClick={()=>{if(confirm("Réinitialiser TOUTES les données ?")){ localStorage.removeItem(DB_KEY);window.location.reload();}}} outline color={C.red} s={{fontSize:11}}>🗑️ Réinitialiser les données</Btn>
+                </Card>
               </>
             )}
           </>
         )}
       </div>
-      <Nv tabs={tabs} act={tab} onT={t => { setTab(t); setCM(null); setEI(null); setMsg(""); setCD(null); setSC(null); setVS(null); }} ac={ac} />
+      <BottomNav tabs={tabs} active={tab} onTab={t=>{setTab(t);}} color={C.green}/>
     </div>
   );
 };
 
-// ═══ LOGIN ═══
-const LoginP = ({ db, onIn }) => {
-  const [uid, setU] = useState("");
-  const [pw, setP] = useState("");
-  const [err, setE] = useState("");
+// ═══════════════════════════════════════════
+// LOGIN PAGE
+// ═══════════════════════════════════════════
+const LoginPage = ({db, onLogin}) => {
+  const [uid,setUid] = useState("");
+  const [pw,setPw] = useState("");
+  const [err,setErr] = useState("");
+  const [showPw,setShowPw] = useState(false);
   const total = Object.keys(db.users).length;
+  const apiOk = !!getApiKey();
 
-  const go = () => {
-    const u = db.users[uid.toUpperCase()];
-    if (!u || u.pw !== pw) { setE("❌ Identifiant ou mot de passe incorrect"); return; }
-    onIn({ ...u, uid: uid.toUpperCase() });
+  const login = () => {
+    const u = db.users[uid.toUpperCase().trim()];
+    if(!u||u.pw!==pw){setErr("❌ Identifiant ou mot de passe incorrect");return;}
+    onLogin({...u,uid:uid.toUpperCase().trim()});
   };
 
   return (
-    <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, background: "radial-gradient(ellipse at 25% 15%,#1a1000 0%," + Z.bg + " 65%)" }}>
-      <div style={{ width: 76, height: 76, borderRadius: 20, margin: "0 auto 20px", background: "linear-gradient(135deg," + BC + ",#b8860b)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 38, boxShadow: "0 12px 40px " + BC + "30" }}>{BI}</div>
-      <h1 style={{ fontFamily: FD, fontSize: 24, fontWeight: 700, margin: "0 0 4px", color: BC }}>{BR}</h1>
-      <p style={{ fontSize: 12, color: Z.m, margin: "0 0 2px" }}>Révision Intelligente</p>
-      <p style={{ fontSize: 10, color: Z.d, margin: "0 0 24px", letterSpacing: 2, textTransform: "uppercase" }}>Djibouti • KG → Terminale</p>
-      <div style={{ width: "100%", maxWidth: 340 }}>
-        <Inp label="IDENTIFIANT" value={uid} onChange={v => { setU(v); setE(""); }} ph="Votre ID" />
-        <div onKeyDown={e => { if (e.key === "Enter") go(); }}>
-          <Inp label="MOT DE PASSE" value={pw} onChange={v => { setP(v); setE(""); }} type="password" ph="Mot de passe" />
+    <div style={{minHeight:"100dvh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,background:"radial-gradient(ellipse at 25% 15%,#0f0d2a 0%,"+C.bg+" 60%)"}}>
+      <div style={{width:80,height:80,borderRadius:22,margin:"0 auto 20px",background:"linear-gradient(135deg,"+C.primary+","+C.purple+")",display:"flex",alignItems:"center",justifyContent:"center",fontSize:40,boxShadow:"0 12px 40px "+C.primary+"40"}}>{ICON}</div>
+      <h1 style={{fontFamily:FD,fontSize:26,fontWeight:700,margin:"0 0 4px",color:C.w}}>{BRAND_SHORT}</h1>
+      <p style={{fontSize:12,color:C.m,margin:"0 0 2px"}}>ERP & LMS — Système de Gestion Scolaire Intelligent</p>
+      <p style={{fontSize:10,color:C.d,margin:"0 0 28px",letterSpacing:2,textTransform:"uppercase"}}>Djibouti • Afrique • Maternelle → Terminale</p>
+      <div style={{width:"100%",maxWidth:360}}>
+        <Inp label="Identifiant" value={uid} onChange={v=>{setUid(v);setErr("");}} ph="Votre ID (ex: ADM001)"/>
+        <div onKeyDown={e=>e.key==="Enter"&&login()} style={{marginBottom:4}}>
+          <div style={{marginBottom:4}}>
+            <label style={{fontSize:10,color:C.m,fontWeight:700,display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:0.5}}>Mot de passe</label>
+            <div style={{display:"flex",gap:8}}>
+              <input value={pw} onChange={e=>{setPw(e.target.value);setErr("");}} type={showPw?"text":"password"} placeholder="Votre mot de passe"
+                style={{flex:1,padding:"11px 13px",borderRadius:9,border:"1.5px solid "+C.border,background:"rgba(255,255,255,0.04)",color:C.w,fontSize:13,outline:"none"}}/>
+              <button onClick={()=>setShowPw(!showPw)} style={{padding:"0 12px",borderRadius:9,border:"1px solid "+C.border,background:C.card,cursor:"pointer"}}>{showPw?"🙈":"👁️"}</button>
+            </div>
+          </div>
         </div>
-        {err && <p style={{ color: Z.r, fontSize: 12, margin: "-4px 0 8px" }}>{err}</p>}
-        <Btn onClick={go} color={BC} full>Se connecter</Btn>
-        <div style={{ textAlign: "center", marginTop: 12, fontSize: 10, color: Z.d }}>{total} utilisateur(s)</div>
-        {total <= 1 && (
-          <Cd s={{ marginTop: 14, padding: 14, background: Z.a + "08", border: "1px solid " + Z.a + "18" }}>
-            <div style={{ fontSize: 11, fontWeight: 800, color: Z.a, marginBottom: 6 }}>🏁 Premier démarrage</div>
-            <div style={{ fontSize: 11, color: Z.m }}>Connectez-vous Admin pour configurer :</div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: Z.w, marginTop: 6, fontFamily: "monospace" }}>ID: ADM001 • MDP: admin2026</div>
-          </Cd>
-        )}
-        {!getApiKey() && (
-          <Cd s={{ marginTop: 10, padding: 14, background: Z.r + "08", border: "1px solid " + Z.r + "18" }}>
-            <div style={{ fontSize: 11, fontWeight: 800, color: Z.r }}>⚠️ Clé API non configurée</div>
-            <div style={{ fontSize: 10, color: Z.m, marginTop: 4 }}>Connectez-vous Admin → ⚙️ Configuration API</div>
-          </Cd>
-        )}
-        {getApiKey() && (
-          <Cd s={{ marginTop: 10, padding: 10 }}>
-            <div style={{ fontSize: 11, color: Z.g, fontWeight: 700 }}>🟢 API configurée — Prêt</div>
-          </Cd>
-        )}
+        {err&&<p style={{color:C.red,fontSize:12,margin:"0 0 10px"}}>{err}</p>}
+        <Btn onClick={login} color={C.primary} full s={{marginBottom:14,padding:"13px 20px",fontSize:14}}>Se connecter →</Btn>
+        <div style={{textAlign:"center",fontSize:10,color:C.d,marginBottom:12}}>{total} utilisateur(s) enregistré(s)</div>
+        {total<=1&&<Card s={{background:C.amber+"0a",border:"1px solid "+C.amber+"25",marginBottom:10}}>
+          <div style={{fontSize:11,fontWeight:800,color:C.amber,marginBottom:6}}>🏁 Premier démarrage</div>
+          <div style={{fontSize:11,color:C.m,marginBottom:4}}>Connectez-vous en tant qu'Admin :</div>
+          <div style={{fontSize:13,fontWeight:700,color:C.w,fontFamily:"monospace"}}>ID: ADM001 &nbsp;|&nbsp; MDP: admin2026</div>
+        </Card>}
+        <Card s={{background:apiOk?C.green+"08":C.red+"08",border:"1px solid "+(apiOk?C.green:C.red)+"20",padding:12}}>
+          <div style={{fontSize:11,fontWeight:700,color:apiOk?C.green:C.red}}>{apiOk?"🟢 API Claude configurée — IA activée":"⚠️ Clé API non configurée — Connectez-vous Admin → Paramètres"}</div>
+        </Card>
+        <div style={{marginTop:16,textAlign:"center"}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6}}>
+            {[{ic:"🎓",l:"Élève"},{ic:"👨‍👩‍👧",l:"Parent"},{ic:"📚",l:"Enseignant"},{ic:"🏫",l:"Admin"}].map(r=>(
+              <div key={r.l} style={{padding:"8px 4px",borderRadius:8,background:C.card,border:"1px solid "+C.border,textAlign:"center"}}>
+                <div style={{fontSize:16}}>{r.ic}</div><div style={{fontSize:9,color:C.m,marginTop:2}}>{r.l}</div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
 };
 
-// ═══ MAIN ═══
-function App() {
-  const [db, _setDB] = useState(loadDB);
-  const [cur, setCur] = useState(null);
+// ═══════════════════════════════════════════
+// QUIZ CARD
+// ═══════════════════════════════════════════
+const QuizCard = ({q,onAnswer,done,sel}) => {
+  const ok = done && sel===q.c;
+  return (
+    <Card s={{marginTop:10,background:done?(ok?C.green+"08":C.red+"08"):C.card,border:"1px solid "+(done?(ok?C.green:C.red):C.border)+"20"}}>
+      <div style={{fontSize:13,fontWeight:700,marginBottom:12,lineHeight:1.5}}>{q.q}</div>
+      {q.os.map((o,i)=>{
+        const isT=done&&i===sel; const isR=done&&i===q.c;
+        return <button key={i} onClick={()=>!done&&onAnswer(i)} disabled={done}
+          style={{display:"block",width:"100%",padding:"10px 14px",borderRadius:9,textAlign:"left",fontSize:12,fontWeight:600,cursor:done?"default":"pointer",marginBottom:5,border:"1.5px solid "+(isR?C.green:isT&&!ok?C.red:C.border),background:isR?C.green+"15":isT&&!ok?C.red+"15":C.card,color:isR?C.green:isT&&!ok?C.red:C.w}}>
+          {"ABCD"[i]}) {o}{isR&&done?" ✅":""}{isT&&!ok&&done?" ❌":""}
+        </button>;
+      })}
+      {done&&<div style={{marginTop:10,padding:10,borderRadius:8,background:(ok?C.green:C.red)+"08",border:"1px solid "+(ok?C.green:C.red)+"20"}}>
+        <div style={{fontSize:11,fontWeight:800,color:ok?C.green:C.red}}>{ok?"✅ Correct !":"❌ Pas tout à fait..."}</div>
+        <div style={{fontSize:11,color:"rgba(255,255,255,0.7)",lineHeight:1.6,marginTop:3}}>{q.ex}</div>
+      </div>}
+    </Card>
+  );
+};
 
-  const setDB = useCallback((updater) => {
+// ═══════════════════════════════════════════
+// AI CHAT COMPONENT (reusable)
+// ═══════════════════════════════════════════
+const AiChat = ({systemPrompt,placeholder="Votre message...",welcomeMsg,enableQuiz=false}) => {
+  const [msgs,setMsgs] = useState([]);
+  const [inp,setInp] = useState("");
+  const [loading,setLoading] = useState(false);
+  const [quizzes,setQuizzes] = useState([]);
+  const [quizAnswers,setQA] = useState({});
+  const ref = useRef(null);
+
+  useEffect(()=>{
+    if(welcomeMsg){
+      setLoading(true);
+      callAI([{role:"user",content:welcomeMsg}],systemPrompt).then(r=>{
+        setMsgs([{role:"ai",text:r}]);
+        if(enableQuiz) setQuizzes(parseQuiz(r));
+        setLoading(false);
+      });
+    }
+  },[]);
+
+  useEffect(()=>{ if(ref.current) ref.current.scrollTo({top:ref.current.scrollHeight,behavior:"smooth"}); },[msgs,loading]);
+
+  const send = async (custom) => {
+    const txt = custom||inp.trim(); if(!txt||loading) return;
+    if(!custom) setInp("");
+    const history = [...msgs,{role:"user",text:txt}];
+    setMsgs(history); setQuizzes([]); setQA({}); setLoading(true);
+    const apiMsgs = history.map(m=>({role:m.role==="ai"?"assistant":"user",content:m.text}));
+    const r = await callAI(apiMsgs.slice(-16),systemPrompt);
+    const newMsgs = [...history,{role:"ai",text:r}];
+    setMsgs(newMsgs);
+    if(enableQuiz) setQuizzes(parseQuiz(r));
+    setLoading(false);
+  };
+
+  const handleQA = (qi,oi) => {
+    setQA(p=>({...p,[qi]:oi}));
+    const q=quizzes[qi]; const ok=oi===q.c;
+    setTimeout(()=>{
+      if(ok) send('✅ Bonne réponse! Question suivante niveau supérieur.');
+      else send('❌ Mauvaise réponse. Bonne: "'+q.os[q.c]+'". Génère une question similaire.');
+    },1200);
+  };
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",height:"100%"}}>
+      <div ref={ref} style={{flex:1,overflowY:"auto",paddingBottom:8}}>
+        {msgs.map((m,i)=>(
+          <div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start",marginBottom:8}}>
+            <div style={{maxWidth:"90%",padding:m.role==="user"?"10px 14px":"12px 16px",borderRadius:m.role==="user"?"14px 14px 4px 14px":"14px 14px 14px 4px",background:m.role==="user"?C.primary+"20":"rgba(255,255,255,0.04)",border:"1px solid "+(m.role==="user"?C.primary:C.border)+"20"}}>
+              {m.role==="ai"&&<div style={{fontSize:10,color:C.gold,fontWeight:700,marginBottom:4}}>{ICON} {BRAND_SHORT} IA</div>}
+              {m.role==="ai"?<div>{renderMd(m.text)}</div>:<div style={{fontSize:13,color:"rgba(255,255,255,0.85)",lineHeight:1.6}}>{m.text}</div>}
+            </div>
+          </div>
+        ))}
+        {quizzes.map((q,i)=><QuizCard key={i+"_"+msgs.length} q={q} done={quizAnswers[i]!==undefined} sel={quizAnswers[i]} onAnswer={o=>handleQA(i,o)}/>)}
+        {loading&&<div style={{fontSize:12,color:C.gold,padding:"8px 0"}} className="blink"><Spinner/>{BRAND_SHORT} réfléchit...</div>}
+      </div>
+      <div style={{display:"flex",gap:8,paddingTop:8,borderTop:"1px solid "+C.border}}>
+        <input value={inp} onChange={e=>setInp(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()}
+          placeholder={placeholder} style={{flex:1,padding:"11px 14px",borderRadius:10,border:"1.5px solid "+C.border,background:"rgba(255,255,255,0.04)",color:C.w,fontSize:13,outline:"none"}}/>
+        <button onClick={()=>send()} disabled={loading} style={{padding:"11px 16px",borderRadius:10,border:"none",background:C.primary,color:C.w,fontWeight:800,cursor:"pointer",opacity:loading?0.5:1,fontSize:16}}>↑</button>
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════
+// MAIN APP
+// ═══════════════════════════════════════════
+function App() {
+  const [db, _setDB] = React.useState(loadDB);
+  const [currentUser, setCurrentUser] = React.useState(null);
+
+  const setDB = React.useCallback(updater => {
     _setDB(prev => {
       const next = typeof updater === "function" ? updater(prev) : updater;
       saveDB(next);
@@ -979,16 +1679,15 @@ function App() {
     });
   }, []);
 
-  const out = () => setCur(null);
+  const logout = () => setCurrentUser(null);
 
-  if (!cur) return <LoginP db={db} onIn={setCur} />;
-  if (cur.role === "student") return <StudentP user={cur} onOut={out} />;
-  if (cur.role === "parent") return <ParentP user={cur} db={db} onOut={out} />;
-  if (cur.role === "teacher") return <TeacherP user={cur} db={db} setDB={setDB} onOut={out} />;
-  if (cur.role === "admin") return <AdminP user={cur} db={db} setDB={setDB} onOut={out} />;
-  return null;
+  if(!currentUser) return <LoginPage db={db} onLogin={setCurrentUser}/>;
+  if(currentUser.role==="student") return <StudentPortal user={currentUser} db={db} onOut={logout}/>;
+  if(currentUser.role==="parent") return <ParentPortal user={currentUser} db={db} onOut={logout}/>;
+  if(currentUser.role==="teacher") return <TeacherPortal user={currentUser} db={db} setDB={setDB} onOut={logout}/>;
+  if(currentUser.role==="admin") return <AdminPortal user={currentUser} db={db} setDB={setDB} onOut={logout}/>;
+  return <div style={{color:"#ef4444",padding:24}}>Rôle inconnu</div>;
 }
-
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>
