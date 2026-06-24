@@ -837,7 +837,7 @@ const TeacherPortal = ({user, db, setDB, onOut}) => {
   const [tab,setTab] = useState("home");
   const [aiTab,setAiTab] = useState("quiz");
   const [selCls,setSelCls] = useState((user.classes||[])[0]||"");
-  const [selSubj,setSelSubj] = useState(user.subject||"");
+  const [selSubj,setSelSubj] = useState(user.subject||(CUR[c2l((user.classes||[])[0]||"")]?.s[0])||"");
   // Grades
   const [gradeInputs,setGradeInputs] = useState({});
   const [gradeSaved,setGradeSaved] = useState(false);
@@ -907,6 +907,7 @@ const TeacherPortal = ({user, db, setDB, onOut}) => {
   };
 
   const addMaterial = () => {
+    if(!selCls||!selSubj){setMatMsg("❌ Sélectionnez une classe et une matière");return;}
     if(!newMatTitle.trim()){setMatMsg("❌ Titre obligatoire");return;}
     const key=selCls+"::"+selSubj;
     const mat={id:Date.now()+"",title:newMatTitle.trim(),content:newMatContent.trim(),date:new Date().toLocaleDateString("fr-FR"),author:user.name};
@@ -976,12 +977,13 @@ const TeacherPortal = ({user, db, setDB, onOut}) => {
         {tab!=="home"&&<Card s={{marginBottom:12,padding:12}}>
           <div style={{display:"flex",gap:8}}>
             <div style={{flex:1}}>
-              <Sel value={selCls} onChange={setSelCls} options={myClasses}/>
+              <Sel value={selCls} onChange={v=>{setSelCls(v);setSelSubj(CUR[c2l(v)]?.s[0]||user.subject||"");}} options={myClasses}/>
             </div>
             <div style={{flex:1}}>
-              <Sel value={selSubj} onChange={setSelSubj} options={[user.subject]}/>
+              <Sel value={selSubj} onChange={setSelSubj} options={CUR[c2l(selCls)]?.s||[user.subject].filter(Boolean)}/>
             </div>
           </div>
+          {(!selCls||!selSubj)&&<div style={{fontSize:10,color:C.amber,marginTop:4}}>⚠️ Sélectionnez une classe et une matière</div>}
         </Card>}
 
         {tab==="home"&&(
@@ -1195,47 +1197,78 @@ const ProgrammesTab = ({db, setDB}) => {
   const [progCls,setProgCls] = useState((db.classes||[])[0]||"");
   const [newSubj,setNewSubj] = useState("");
   const [progMsg,setProgMsg] = useState("");
+  const [selProgSubj,setSelProgSubj] = useState("");
+  const [showAddMat,setShowAddMat] = useState(false);
+  const [matTitle,setMatTitle] = useState("");
+  const [matContent,setMatContent] = useState("");
+  const [matMsg,setMatMsg] = useState("");
   const lv = c2l(progCls);
   const defSubjs = CUR[lv]?.s||[];
   const customSubjs = db.chapters ? Object.keys(db.chapters).filter(k=>k.startsWith(progCls+"::")).map(k=>k.split("::")[1]) : [];
   const allSubjs = [...new Set([...defSubjs,...customSubjs])];
+  const unusedSubjs = SUB_LIST.filter(s=>!defSubjs.includes(s)&&!customSubjs.includes(s));
   const addSubjToClass = () => {
     if(!newSubj.trim()){setProgMsg("❌ Sélectionner une matière");return;}
     const key=progCls+"::"+newSubj;
     if(!(db.chapters||{})[key]){setDB(p=>({...p,chapters:{...p.chapters,[key]:DEF_CHAPTERS[newSubj]||["Chapitre 1","Chapitre 2","Chapitre 3"]}}));}
     setNewSubj("");setProgMsg("✅ Matière ajoutée !");setTimeout(()=>setProgMsg(""),2500);
   };
+  const addCourseMaterial = () => {
+    if(!selProgSubj){setMatMsg("❌ Sélectionnez une matière");return;}
+    if(!matTitle.trim()){setMatMsg("❌ Titre obligatoire");return;}
+    const key=progCls+"::"+selProgSubj;
+    const mat={id:Date.now()+"",title:matTitle.trim(),content:matContent.trim(),date:new Date().toLocaleDateString("fr-FR"),author:"Administration"};
+    setDB(p=>({...p,materials:{...p.materials,[key]:[...(p.materials?.[key]||[]),mat]}}));
+    setMatTitle("");setMatContent("");setShowAddMat(false);setMatMsg("✅ Cours publié !");setTimeout(()=>setMatMsg(""),2500);
+  };
+  const delMat = (key,id) => setDB(p=>({...p,materials:{...p.materials,[key]:(p.materials?.[key]||[]).filter(m=>m.id!==id)}}));
   return (
     <div>
       <div style={{fontSize:14,fontWeight:800,fontFamily:FD,marginBottom:12}}>📋 Gestion des Programmes</div>
-      <Sel label="Sélectionner la classe" value={progCls} onChange={setProgCls} options={db.classes||[]}/>
+      <Sel label="Sélectionner la classe" value={progCls} onChange={v=>{setProgCls(v);setSelProgSubj("");setShowAddMat(false);}} options={db.classes||[]}/>
       {progCls&&<>
         <Card s={{marginBottom:12,background:C.primary+"08",border:"1px solid "+C.primary+"20",padding:14}}>
           <div style={{fontSize:13,fontWeight:800,marginBottom:2}}>{progCls} — Niveau: {lv}</div>
           <div style={{fontSize:10,color:C.m,marginBottom:10}}>Programme officiel + matières personnalisées ({allSubjs.length} matières)</div>
           <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:8}}>
             {allSubjs.map(s=>(
-              <span key={s} style={{padding:"4px 10px",borderRadius:8,background:defSubjs.includes(s)?C.primary+"18":C.green+"18",border:"1px solid "+(defSubjs.includes(s)?C.primary:C.green)+"30",color:defSubjs.includes(s)?C.primary:C.green,fontSize:10,fontWeight:700}}>{s}</span>
+              <span key={s} onClick={()=>{setSelProgSubj(s);setShowAddMat(false);}} style={{padding:"5px 12px",borderRadius:8,background:selProgSubj===s?C.primary+"30":defSubjs.includes(s)?C.primary+"12":C.green+"12",border:"1px solid "+(selProgSubj===s?C.primary:defSubjs.includes(s)?C.primary:C.green)+"40",color:selProgSubj===s?C.w:defSubjs.includes(s)?C.primary:C.green,fontSize:10,fontWeight:700,cursor:"pointer"}}>{s}</span>
             ))}
           </div>
           <div style={{fontSize:9,color:C.d}}>🔵 Programme officiel • 🟢 Ajouté manuellement</div>
         </Card>
-        <Card s={{padding:13}}>
-          <div style={{fontSize:11,fontWeight:800,marginBottom:8}}>➕ Ajouter une matière</div>
-          <Sel value={newSubj} onChange={setNewSubj} options={SUB_LIST.filter(s=>!allSubjs.includes(s))}/>
+        {selProgSubj&&<Card s={{marginBottom:12,background:C.blue+"07",border:"1px solid "+C.blue+"20",padding:14}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+            <div style={{fontSize:12,fontWeight:800}}>📚 {selProgSubj}</div>
+            <button onClick={()=>setShowAddMat(!showAddMat)} style={{padding:"5px 12px",borderRadius:7,border:"1px solid "+C.blue+"40",background:C.blue+"12",color:C.blue,fontSize:10,fontWeight:700,cursor:"pointer"}}>{showAddMat?"✕ Annuler":"+ Ajouter un cours"}</button>
+          </div>
+          {matMsg&&<div style={{fontSize:11,color:matMsg[0]==="✅"?C.green:C.red,marginBottom:8}}>{matMsg}</div>}
+          {showAddMat&&<div style={{marginBottom:12,padding:12,borderRadius:10,background:"rgba(0,0,0,0.15)",border:"1px solid "+C.border}}>
+            <Inp label="Titre du cours *" value={matTitle} onChange={setMatTitle} ph="Ex: Introduction au chapitre 1"/>
+            <Textarea label="Contenu du cours" value={matContent} onChange={setMatContent} ph="Rédigez le contenu, les exercices, les ressources..." rows={4}/>
+            <Btn onClick={addCourseMaterial} color={C.blue} s={{fontSize:11}}>💾 Publier le cours</Btn>
+          </div>}
+          <div style={{fontSize:10,fontWeight:800,color:C.m,marginBottom:6,textTransform:"uppercase"}}>Cours publiés ({(db.materials?.[progCls+"::"+selProgSubj]||[]).length})</div>
+          {(db.materials?.[progCls+"::"+selProgSubj]||[]).length===0&&<div style={{fontSize:11,color:C.d,padding:"8px 0"}}>Aucun cours publié pour cette matière</div>}
+          {(db.materials?.[progCls+"::"+selProgSubj]||[]).map(m=>(
+            <div key={m.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid "+C.border+"30"}}>
+              <span style={{fontSize:13}}>📄</span>
+              <div style={{flex:1}}><div style={{fontSize:11,fontWeight:600}}>{m.title}</div><div style={{fontSize:9,color:C.m}}>{m.date} • {m.author}</div></div>
+              <button onClick={()=>delMat(progCls+"::"+selProgSubj,m.id)} style={{padding:"3px 8px",borderRadius:5,border:"1px solid "+C.red+"30",background:C.red+"10",color:C.red,fontSize:9,cursor:"pointer"}}>🗑</button>
+            </div>
+          ))}
+          <div style={{marginTop:10,fontSize:10,fontWeight:800,color:C.m,marginBottom:6,textTransform:"uppercase"}}>Chapitres</div>
+          {getChapters(db,progCls,selProgSubj).map((ch,j)=>(
+            <div key={j} style={{fontSize:10,color:C.d,padding:"3px 0"}}>{j+1}. {ch}</div>
+          ))}
+        </Card>}
+        {!selProgSubj&&<Card s={{textAlign:"center",padding:20,color:C.m,marginBottom:12}}><div style={{fontSize:24,marginBottom:6}}>👆</div><div style={{fontSize:11}}>Cliquez sur une matière ci-dessus pour gérer ses cours</div></Card>}
+        {unusedSubjs.length>0&&<Card s={{padding:13}}>
+          <div style={{fontSize:11,fontWeight:800,marginBottom:8}}>➕ Ajouter une matière supplémentaire</div>
+          <Sel value={newSubj} onChange={setNewSubj} options={unusedSubjs}/>
           {progMsg&&<div style={{fontSize:11,color:progMsg[0]==="✅"?C.green:C.red,marginBottom:8}}>{progMsg}</div>}
           <Btn onClick={addSubjToClass} color={C.green} s={{fontSize:11}}>+ Ajouter au programme</Btn>
-        </Card>
-        <Card s={{marginTop:10,padding:13}}>
-          <div style={{fontSize:11,fontWeight:800,marginBottom:8}}>📖 Chapitres par matière</div>
-          {allSubjs.map(s=>{
-            const chs = getChapters(db,progCls,s);
-            return <div key={s} style={{padding:"6px 0",borderBottom:"1px solid "+C.border+"40"}}>
-              <div style={{fontSize:11,fontWeight:700,marginBottom:2}}>{s}</div>
-              <div style={{fontSize:9,color:C.m}}>{chs.slice(0,4).join(" • ")}{chs.length>4?" +"+( chs.length-4)+" autres":""}</div>
-            </div>;
-          })}
-        </Card>
+        </Card>}
       </>}
     </div>
   );
