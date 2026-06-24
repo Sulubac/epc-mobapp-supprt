@@ -425,12 +425,30 @@ Réponds toujours en français. Adapte le niveau à ${lv}.`;
                     <span style={{color:C.m,fontSize:12}}>{open?"▼":"▶"}</span>
                   </div>
                   {open&&<div style={{borderTop:"1px solid "+C.border,padding:"10px 16px 14px"}}>
+                    <div style={{fontSize:10,fontWeight:800,color:C.m,marginBottom:6,textTransform:"uppercase"}}>Chapitres</div>
                     {chapters.map((ch,j)=>(
-                      <div key={j} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:j<chapters.length-1?"1px solid "+C.border+"50":"none"}}>
-                        <div style={{width:22,height:22,borderRadius:6,background:C.primary+"15",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:800,color:C.primary}}>{j+1}</div>
-                        <span style={{fontSize:12}}>{ch}</span>
+                      <div key={j} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:j<chapters.length-1?"1px solid "+C.border+"40":"none"}}>
+                        <div style={{width:20,height:20,borderRadius:5,background:C.primary+"15",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:800,color:C.primary}}>{j+1}</div>
+                        <span style={{fontSize:11}}>{ch}</span>
                       </div>
                     ))}
+                    {(db.materials?.[user.cls+"::"+subj]||[]).length>0&&(
+                      <div style={{marginTop:10}}>
+                        <div style={{fontSize:10,fontWeight:800,color:C.blue,marginBottom:6,textTransform:"uppercase"}}>📄 Cours publiés par l'enseignant</div>
+                        {(db.materials[user.cls+"::"+subj]||[]).map((m,mi)=>(
+                          <div key={m.id} style={{padding:"7px 0",borderBottom:mi<(db.materials[user.cls+"::"+subj].length-1)?"1px solid "+C.border+"30":"none"}}>
+                            <div style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer"}} onClick={()=>setSelSubj(selSubj===subj+"_mat_"+m.id?subj:subj+"_mat_"+m.id)}>
+                              <span style={{fontSize:12}}>📄</span>
+                              <span style={{fontSize:11,fontWeight:600,flex:1}}>{m.title}</span>
+                              <span style={{fontSize:9,color:C.m}}>{m.date}</span>
+                            </div>
+                            {selSubj===subj+"_mat_"+m.id&&m.content&&(
+                              <div style={{marginTop:6,padding:10,borderRadius:8,background:C.blue+"08",border:"1px solid "+C.blue+"15",fontSize:11,color:"rgba(255,255,255,0.75)",lineHeight:1.8,whiteSpace:"pre-wrap"}}>{m.content}</div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <div style={{marginTop:10}}>
                       <Btn onClick={()=>{setTutorMode("learn");setTab("ia");}} color={C.primary} s={{fontSize:11,padding:"8px 14px"}}>📖 Étudier avec l'IA →</Btn>
                     </div>
@@ -495,41 +513,53 @@ Réponds toujours en français. Adapte le niveau à ${lv}.`;
 };
 
 // ═══════════════════════════════════════════
-// CAREER ORIENTATION (AI)
+// CAREER ORIENTATION ENGINE (AI) — ENHANCED
 // ═══════════════════════════════════════════
 const CareerOrientation = ({user, lv}) => {
   const [step,setStep] = useState("intro");
   const [answers,setAnswers] = useState({});
   const [result,setResult] = useState("");
   const [loading,setLoading] = useState(false);
+  const [reportType,setReportType] = useState("student");
   const eligible = !["Maternelle","CP","CE1","CE2","CM1"].includes(lv);
 
-  const questions = [
-    {id:"fav",q:"Quelles sont vos 3 matières préférées ?",ph:"Ex: Mathématiques, Sciences, Anglais"},
-    {id:"activity",q:"Quelles activités vous passionnent hors école ?",ph:"Ex: Programmation, Sport, Musique, Dessin..."},
-    {id:"strength",q:"Quels sont vos points forts ?",ph:"Ex: Logique, Communication, Créativité, Organisation..."},
-    {id:"career",q:"Quels métiers vous attirent ?",ph:"Ex: Médecin, Ingénieur, Entrepreneur, Enseignant..."},
-    {id:"dream",q:"Votre rêve pour votre avenir ?",ph:"Décrivez librement votre vision..."}
+  const DOMAINS = [
+    {ic:"💻",l:"IA & Technologie"},{ic:"⚙️",l:"Ingénierie"},{ic:"🏥",l:"Médecine & Santé"},
+    {ic:"💼",l:"Business & Finance"},{ic:"🚢",l:"Maritime & Logistique"},{ic:"✈️",l:"Aviation"},
+    {ic:"📚",l:"Éducation & Recherche"},{ic:"⚖️",l:"Droit & Justice"},{ic:"🌾",l:"Agriculture & Env."},
+    {ic:"🌍",l:"Diplomatie"},{ic:"🏨",l:"Tourisme & Hôtellerie"},{ic:"🚀",l:"Entrepreneuriat"}
   ];
 
-  const generate = async () => {
-    setLoading(true); setStep("result");
-    const sys = `Tu es ${BRAND_SHORT}, conseiller d'orientation IA pour des élèves d'Afrique de l'Est (Djibouti). Tu guides les élèves vers des carrières alignées avec leurs forces et passions. Réponds en français avec enthousiasme et bienveillance. Inspire et motive. Inclus des opportunités locales (Djibouti, Afrique) et internationales. Format structuré avec emojis.`;
-    const prompt = `Élève: ${user.name} | Niveau: ${lv} | Classe: ${user.cls}
-Matières favorites: ${answers.fav||"Non précisé"}
-Activités: ${answers.activity||"Non précisé"}
-Points forts: ${answers.strength||"Non précisé"}
-Métiers envisagés: ${answers.career||"Non précisé"}
-Rêve d'avenir: ${answers.dream||"Non précisé"}
+  const questions = [
+    {id:"interests",q:"Quelles matières scolaires vous passionnent le plus ?",ph:"Ex: Mathématiques, Sciences, Langues, Arts..."},
+    {id:"activities",q:"Quelles activités pratiquez-vous ou souhaitez-vous pratiquer ?",ph:"Ex: Programmation, Sport, Musique, Dessin, Voyages..."},
+    {id:"strengths",q:"Quels sont vos points forts reconnus par vous et votre entourage ?",ph:"Ex: Logique, Empathie, Leadership, Créativité, Rigueur..."},
+    {id:"values",q:"Qu'est-ce qui est le plus important pour vous dans votre futur métier ?",ph:"Ex: Aider les autres, Innover, Voyager, Créer, Stabilité..."},
+    {id:"challenges",q:"Quels problèmes du monde voulez-vous aider à résoudre ?",ph:"Ex: La santé en Afrique, l'éducation, le climat, la pauvreté..."},
+    {id:"rolemodels",q:"Avez-vous des personnalités qui vous inspirent ? Pourquoi ?",ph:"Ex: Un médecin du quartier, un entrepreneur, un scientifique..."},
+    {id:"dream",q:"Décrivez votre vie idéale dans 15 ans",ph:"Où vivez-vous ? Que faites-vous ? Quel impact avez-vous ?"}
+  ];
 
-Génère un profil d'orientation complet avec:
-1. 🎯 Profil de l'élève (2-3 phrases)
-2. 🚀 3 parcours de carrière recommandés (avec détails)
-3. 📚 Matières à renforcer
-4. 🛠️ Compétences à développer
-5. 🌍 Opportunités au Djibouti et en Afrique
-6. 💡 Conseil motivant personnalisé`;
-    const r = await callAI([{role:"user",content:prompt}],sys,2000);
+  const generate = async (type) => {
+    const t = type||"student";
+    setLoading(true); setResult(""); setReportType(t);
+    const sys = `Tu es ${BRAND_SHORT}, moteur d'orientation professionnelle IA pour les jeunes de Djibouti et d'Afrique. Tu guides avec enthousiasme et bienveillance. Tu n'IMPOSES AUCUNE LIMITE. Tu INSPIRES et ouvres toutes les possibilités. Réponds en français avec structure, détails et emojis. Inclus des exemples concrets de Djibouti, d'Afrique et du monde.`;
+    const reportPart = t==="parent" ?
+      `Génère un rapport d'orientation pour les parents:\n1. 📊 Profil de votre enfant (forces, passions, potentiel unique)\n2. 🎯 Directions prometteuses identifiées par l'IA\n3. 🏠 Comment soutenir votre enfant à la maison\n4. 💰 Investissements éducatifs recommandés (cours, livres, activités)\n5. 🤝 Comment dialoguer avec votre enfant sur son avenir\n6. ⏰ Étapes clés à 1 an, 3 ans, 5 ans`
+    : t==="teacher" ?
+      `Génère un rapport pour l'enseignant:\n1. 📋 Profil d'apprentissage de cet élève\n2. 🎯 Directions prometteuses à encourager en classe\n3. 📚 Activités pédagogiques adaptées à ses aspirations\n4. 💪 Comment valoriser ses forces dans les cours\n5. 🔗 Liens entre les matières et ses objectifs de carrière`
+    :
+      `Génère le profil d'orientation complet:\n1. 🌟 Profil personnel unique (3-4 phrases inspirantes)\n2. 🎯 Top 3 parcours de carrière recommandés (description, compétences, perspectives d'emploi)\n3. 🏫 Matières à renforcer maintenant\n4. 🛠️ Compétences clés à développer (techniques et humaines)\n5. 🌍 Opportunités concrètes à Djibouti, en Afrique et dans le monde\n6. 🎓 Universités et formations suggérées (locales et internationales)\n7. 💡 3 actions concrètes à faire dès cette semaine\n8. 🚀 Message motivant personnalisé`;
+    const r = await callAI([{role:"user",content:`Élève: ${user.name} | Niveau: ${lv} | Classe: ${user.cls}
+Intérêts scolaires: ${answers.interests||"Non précisé"}
+Activités: ${answers.activities||"Non précisé"}
+Points forts: ${answers.strengths||"Non précisé"}
+Valeurs professionnelles: ${answers.values||"Non précisé"}
+Problèmes à résoudre: ${answers.challenges||"Non précisé"}
+Inspirations: ${answers.rolemodels||"Non précisé"}
+Vision à 15 ans: ${answers.dream||"Non précisé"}
+
+${reportPart}`}],sys,2500);
     setResult(r); setLoading(false);
   };
 
@@ -543,38 +573,45 @@ Génère un profil d'orientation complet avec:
 
   if(step==="intro") return (
     <div>
-      <Card s={{background:"linear-gradient(135deg,"+C.purple+"15,"+C.teal+"10)",border:"1px solid "+C.purple+"30",marginBottom:16,padding:20}}>
-        <div style={{fontSize:32,marginBottom:10}}>🧭</div>
-        <div style={{fontSize:16,fontWeight:800,fontFamily:FD,marginBottom:8}}>Orientation IA — Votre Avenir</div>
-        <p style={{fontSize:12,color:C.m,lineHeight:1.7,marginBottom:14}}>Notre IA analyse vos forces, passions et rêves pour vous guider vers des carrières qui vous correspondent. Disponible pour {lv}.</p>
-        <Btn onClick={()=>setStep("q0")} color={C.purple} full>🚀 Commencer le questionnaire →</Btn>
+      <Card s={{background:"linear-gradient(135deg,"+C.purple+"15,"+C.teal+"10)",border:"1px solid "+C.purple+"30",marginBottom:14,padding:20}}>
+        <div style={{fontSize:32,marginBottom:8}}>🧭</div>
+        <div style={{fontSize:16,fontWeight:800,fontFamily:FD,marginBottom:6}}>Moteur d'Orientation IA</div>
+        <p style={{fontSize:12,color:C.m,lineHeight:1.7,marginBottom:4}}>Découvrez votre potentiel unique. Notre IA analyse vos forces, passions et rêves pour vous guider vers des carrières épanouissantes — à Djibouti, en Afrique et dans le monde.</p>
+        <p style={{fontSize:10,color:C.d,marginBottom:14}}>7 questions • Profils élève, parent et enseignant • 12 domaines de carrière</p>
+        <Btn onClick={()=>setStep("q0")} color={C.purple} full>🚀 Démarrer mon orientation →</Btn>
       </Card>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-        {["🏥 Médecine","🔬 Sciences","💻 Technologie","✈️ Aviation","🌍 Diplomatie","📚 Éducation","💼 Business","⚖️ Droit"].map(c=>(
-          <div key={c} style={{padding:"10px 12px",borderRadius:10,background:C.card,border:"1px solid "+C.border,fontSize:11,fontWeight:600,color:C.m}}>{c}</div>
+      <div style={{fontSize:10,fontWeight:800,color:C.m,marginBottom:8,textTransform:"uppercase",letterSpacing:1}}>12 domaines de carrière explorés</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5}}>
+        {DOMAINS.map(d=>(
+          <div key={d.l} style={{padding:"7px 9px",borderRadius:8,background:C.card,border:"1px solid "+C.border,display:"flex",alignItems:"center",gap:6}}>
+            <span style={{fontSize:13}}>{d.ic}</span><span style={{fontSize:9,fontWeight:600,color:C.m}}>{d.l}</span>
+          </div>
         ))}
       </div>
     </div>
   );
 
   if(step.startsWith("q")){
-    const qi = parseInt(step.slice(1));
-    const q = questions[qi];
+    const qi=parseInt(step.slice(1));
+    const q=questions[qi];
     return (
       <div>
-        <div style={{marginBottom:16}}>
-          <div style={{display:"flex",gap:4,marginBottom:8}}>
+        <div style={{marginBottom:14}}>
+          <div style={{display:"flex",gap:3,marginBottom:6}}>
             {questions.map((_,i)=><div key={i} style={{flex:1,height:4,borderRadius:2,background:i<=qi?C.purple:C.border}}/>)}
           </div>
-          <div style={{fontSize:10,color:C.m}}>Question {qi+1}/{questions.length}</div>
+          <div style={{fontSize:10,color:C.m}}>Question {qi+1}/{questions.length} — Il n'y a pas de mauvaise réponse</div>
         </div>
-        <Card s={{padding:20,marginBottom:14}}>
-          <div style={{fontSize:14,fontWeight:800,marginBottom:12,lineHeight:1.5}}>{q.q}</div>
+        <Card s={{padding:20,marginBottom:12}}>
+          <div style={{fontSize:14,fontWeight:800,marginBottom:10,lineHeight:1.5}}>{q.q}</div>
           <Textarea value={answers[q.id]||""} onChange={v=>setAnswers(p=>({...p,[q.id]:v}))} ph={q.ph} rows={3}/>
         </Card>
         <div style={{display:"flex",gap:8}}>
           {qi>0&&<Btn onClick={()=>setStep("q"+(qi-1))} outline color={C.m} s={{flex:1}}>← Retour</Btn>}
-          {qi<questions.length-1?<Btn onClick={()=>setStep("q"+(qi+1))} color={C.purple} s={{flex:1}}>Suivant →</Btn>:<Btn onClick={generate} color={C.purple} s={{flex:1}}>🚀 Générer mon profil</Btn>}
+          {qi<questions.length-1
+            ?<Btn onClick={()=>setStep("q"+(qi+1))} color={C.purple} s={{flex:1}}>Suivant →</Btn>
+            :<Btn onClick={()=>{setStep("result");generate("student");}} color={C.purple} s={{flex:1}}>🚀 Générer mon profil</Btn>
+          }
         </div>
       </div>
     );
@@ -582,11 +619,14 @@ Génère un profil d'orientation complet avec:
 
   return (
     <div>
-      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
-        <button onClick={()=>{setStep("intro");setResult("");setAnswers({});}} style={{background:"none",border:"none",color:C.purple,fontSize:12,fontWeight:700,cursor:"pointer"}}>← Recommencer</button>
+      <button onClick={()=>{setStep("intro");setResult("");setAnswers({});setReportType("student");}} style={{background:"none",border:"none",color:C.purple,fontSize:12,fontWeight:700,cursor:"pointer",marginBottom:12}}>← Recommencer</button>
+      <div style={{display:"flex",gap:5,marginBottom:12}}>
+        {[{id:"student",l:"🎓 Mon profil"},{id:"parent",l:"👨‍👩‍👧 Parents"},{id:"teacher",l:"📚 Enseignant"}].map(t=>(
+          <button key={t.id} onClick={()=>generate(t.id)} disabled={loading} style={{flex:1,padding:"9px 6px",borderRadius:9,border:"1px solid "+(reportType===t.id&&result?C.purple:C.border),background:reportType===t.id&&result?C.purple+"18":"transparent",color:reportType===t.id&&result?C.purple:C.m,fontSize:10,fontWeight:700,cursor:"pointer",opacity:loading?0.5:1}}>{t.l}</button>
+        ))}
       </div>
-      {loading&&<Card s={{textAlign:"center",padding:32}}><div className="blink" style={{fontSize:14,color:C.purple}}><Spinner/>Génération de votre profil d'orientation...</div></Card>}
-      {result&&<Card s={{background:C.purple+"0a",border:"1px solid "+C.purple+"20"}}><div>{renderMd(result)}</div></Card>}
+      {loading&&<Card s={{textAlign:"center",padding:32}}><div className="blink" style={{color:C.purple}}><Spinner/>L'IA explore votre potentiel unique...</div></Card>}
+      {result&&!loading&&<Card s={{background:C.purple+"08",border:"1px solid "+C.purple+"20"}}><div>{renderMd(result)}</div></Card>}
     </div>
   );
 };
@@ -757,24 +797,8 @@ Génère un coaching parental complet:
         {tab==="coach"&&(
           <>
             <div style={{fontSize:15,fontWeight:800,fontFamily:FD,marginBottom:4}}>🤝 IA Coach Parental</div>
-            <div style={{fontSize:11,color:C.m,marginBottom:14}}>Conseils personnalisés pour soutenir votre enfant</div>
-            {children.length===0&&<Card s={{textAlign:"center",padding:24,color:C.m}}>Aucun enfant associé</Card>}
-            {children.map(ch=>(
-              <Card key={ch.id} s={{marginBottom:12}}>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-                  <div><div style={{fontSize:13,fontWeight:800}}>{ch.name}</div><div style={{fontSize:10,color:C.m}}>{ch.cls}</div></div>
-                  <Btn onClick={()=>generateCoaching(ch)} color={C.teal} s={{fontSize:11,padding:"8px 14px"}} disabled={coachLoading}>
-                    {coachLoading?<><Spinner/>Génération...</>:"🤝 Obtenir conseils"}
-                  </Btn>
-                </div>
-              </Card>
-            ))}
-            {coaching&&(
-              <Card s={{background:C.teal+"0a",border:"1px solid "+C.teal+"20"}}>
-                <div style={{fontSize:12,fontWeight:800,color:C.teal,marginBottom:10}}>🤝 Votre coaching personnalisé</div>
-                <div>{renderMd(coaching)}</div>
-              </Card>
-            )}
+            <div style={{fontSize:11,color:C.m,marginBottom:14}}>Conseils personnalisés multilingues — Français • English • العربية • Soomaali</div>
+            <ParentCoachingPanel user={user} db={db} children={children}/>
           </>
         )}
 
@@ -824,6 +848,11 @@ const TeacherPortal = ({user, db, setDB, onOut}) => {
   // Chapters
   const [newChap,setNewChap] = useState("");
   const [chapMsg,setChapMsg] = useState("");
+  const [newMatTitle,setNewMatTitle] = useState("");
+  const [newMatContent,setNewMatContent] = useState("");
+  const [matMsg,setMatMsg] = useState("");
+  const [showMatForm,setShowMatForm] = useState(false);
+  const [matView,setMatView] = useState(null);
   // AI
   const [quizDiff,setQuizDiff] = useState("moyen");
   const [quizCount,setQuizCount] = useState("5");
@@ -875,6 +904,18 @@ const TeacherPortal = ({user, db, setDB, onOut}) => {
     setDB(p=>({...p,chapters:{...p.chapters,[key]:[...existing,newChap.trim()]}}));
     setNewChap(""); setChapMsg("✅ Chapitre ajouté");
     setTimeout(()=>setChapMsg(""),2000);
+  };
+
+  const addMaterial = () => {
+    if(!newMatTitle.trim()){setMatMsg("❌ Titre obligatoire");return;}
+    const key=selCls+"::"+selSubj;
+    const mat={id:Date.now()+"",title:newMatTitle.trim(),content:newMatContent.trim(),date:new Date().toLocaleDateString("fr-FR"),author:user.name};
+    setDB(p=>({...p,materials:{...p.materials,[key]:[...(p.materials[key]||[]),mat]}}));
+    setNewMatTitle("");setNewMatContent("");setShowMatForm(false);setMatMsg("✅ Cours ajouté !");
+    setTimeout(()=>setMatMsg(""),2500);
+  };
+  const delMaterial = (key,id) => {
+    setDB(p=>({...p,materials:{...p.materials,[key]:(p.materials[key]||[]).filter(m=>m.id!==id)}}));
   };
 
   const generateQuiz = async () => {
@@ -969,21 +1010,67 @@ const TeacherPortal = ({user, db, setDB, onOut}) => {
         {tab==="cours"&&(
           <>
             <div style={{fontSize:14,fontWeight:800,fontFamily:FD,marginBottom:4}}>📚 {selSubj} — {selCls}</div>
-            <div style={{fontSize:11,color:C.m,marginBottom:12}}>Chapitres du programme</div>
+
+            {/* Chapters section */}
+            <div style={{fontSize:11,fontWeight:800,color:C.m,marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>Chapitres du programme</div>
             {getChapters(db,selCls,selSubj).map((ch,i)=>(
-              <Card key={i} s={{marginBottom:6,display:"flex",alignItems:"center",gap:10,padding:12}}>
+              <Card key={i} s={{marginBottom:5,display:"flex",alignItems:"center",gap:10,padding:11}}>
                 <div style={{width:26,height:26,borderRadius:7,background:C.green+"18",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:800,color:C.green}}>{i+1}</div>
                 <span style={{flex:1,fontSize:12,fontWeight:600}}>{ch}</span>
               </Card>
             ))}
-            <Card s={{marginTop:12,padding:14}}>
-              <div style={{fontSize:12,fontWeight:800,marginBottom:8}}>➕ Ajouter un chapitre</div>
-              <div style={{display:"flex",gap:8}}>
-                <input value={newChap} onChange={e=>setNewChap(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addChapter()} placeholder="Nom du chapitre" style={{flex:1,padding:"10px 12px",borderRadius:8,border:"1.5px solid "+C.border,background:"rgba(255,255,255,0.04)",color:C.w,fontSize:12,outline:"none"}}/>
-                <Btn onClick={addChapter} color={C.green} s={{fontSize:11,padding:"10px 14px"}}>+</Btn>
+            <Card s={{marginBottom:14,padding:13}}>
+              <div style={{fontSize:11,fontWeight:800,marginBottom:7}}>➕ Ajouter un chapitre</div>
+              <div style={{display:"flex",gap:7}}>
+                <input value={newChap} onChange={e=>setNewChap(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addChapter()} placeholder="Nom du chapitre" style={{flex:1,padding:"9px 11px",borderRadius:8,border:"1.5px solid "+C.border,background:"rgba(255,255,255,0.04)",color:C.w,fontSize:12,outline:"none"}}/>
+                <Btn onClick={addChapter} color={C.green} s={{fontSize:11,padding:"9px 14px"}}>+</Btn>
               </div>
-              {chapMsg&&<div style={{fontSize:11,color:chapMsg[0]==="✅"?C.green:C.red,marginTop:6}}>{chapMsg}</div>}
+              {chapMsg&&<div style={{fontSize:11,color:chapMsg[0]==="✅"?C.green:C.red,marginTop:5}}>{chapMsg}</div>}
             </Card>
+
+            {/* Course Materials section */}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+              <div style={{fontSize:11,fontWeight:800,color:C.m,textTransform:"uppercase",letterSpacing:0.5}}>📄 Cours & Ressources ({(db.materials?.[selCls+"::"+selSubj]||[]).length})</div>
+              <button onClick={()=>setShowMatForm(!showMatForm)} style={{padding:"5px 12px",borderRadius:7,border:"1px solid "+C.blue+"40",background:C.blue+"12",color:C.blue,fontSize:10,fontWeight:700,cursor:"pointer"}}>
+                {showMatForm?"✕ Annuler":"+ Nouveau cours"}
+              </button>
+            </div>
+            {matMsg&&<div style={{fontSize:11,color:matMsg[0]==="✅"?C.green:C.red,marginBottom:8}}>{matMsg}</div>}
+            {showMatForm&&(
+              <Card s={{marginBottom:12,background:C.blue+"06",border:"1px solid "+C.blue+"20",padding:14}}>
+                <Inp label="Titre du cours *" value={newMatTitle} onChange={setNewMatTitle} ph="Ex: Leçon 1 — Les nombres relatifs"/>
+                <Textarea label="Contenu (leçon, exercices, notes...)" value={newMatContent} onChange={setNewMatContent} ph="Rédigez le contenu du cours, les exercices ou les ressources ici..." rows={5}/>
+                <Btn onClick={addMaterial} color={C.blue} s={{fontSize:11}}>💾 Publier le cours</Btn>
+              </Card>
+            )}
+            {(db.materials?.[selCls+"::"+selSubj]||[]).length===0&&!showMatForm&&(
+              <Card s={{textAlign:"center",padding:20,color:C.m,marginBottom:10}}><div style={{fontSize:24,marginBottom:6}}>📄</div><div style={{fontSize:11}}>Aucun cours publié pour cette matière</div></Card>
+            )}
+            {matView&&(
+              <Card s={{marginBottom:10,background:C.blue+"06",border:"1px solid "+C.blue+"25",padding:14}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                  <div style={{fontSize:13,fontWeight:800}}>{matView.title}</div>
+                  <button onClick={()=>setMatView(null)} style={{background:"none",border:"none",color:C.m,cursor:"pointer",fontSize:14}}>✕</button>
+                </div>
+                <div style={{fontSize:10,color:C.m,marginBottom:10}}>{matView.date} • {matView.author}</div>
+                <div style={{fontSize:12,color:"rgba(255,255,255,0.8)",lineHeight:1.8,whiteSpace:"pre-wrap"}}>{matView.content||"(Aucun contenu)"}</div>
+              </Card>
+            )}
+            {(db.materials?.[selCls+"::"+selSubj]||[]).map((m,i)=>(
+              <Card key={m.id} s={{marginBottom:6,padding:12}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{width:32,height:32,borderRadius:8,background:C.blue+"18",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>📄</div>
+                  <div style={{flex:1,cursor:"pointer"}} onClick={()=>setMatView(matView?.id===m.id?null:m)}>
+                    <div style={{fontSize:12,fontWeight:700}}>{m.title}</div>
+                    <div style={{fontSize:9,color:C.m}}>{m.date} • {m.author}</div>
+                  </div>
+                  <div style={{display:"flex",gap:5}}>
+                    <button onClick={()=>setMatView(matView?.id===m.id?null:m)} style={{padding:"4px 9px",borderRadius:6,border:"1px solid "+C.blue+"30",background:C.blue+"10",color:C.blue,fontSize:9,fontWeight:700,cursor:"pointer"}}>👁 Voir</button>
+                    <button onClick={()=>delMaterial(selCls+"::"+selSubj,m.id)} style={{padding:"4px 9px",borderRadius:6,border:"1px solid "+C.red+"30",background:C.red+"10",color:C.red,fontSize:9,fontWeight:700,cursor:"pointer"}}>🗑</button>
+                  </div>
+                </div>
+              </Card>
+            ))}
           </>
         )}
 
@@ -1091,19 +1178,65 @@ const TeacherPortal = ({user, db, setDB, onOut}) => {
             )}
 
             {aiTab==="detect"&&(
-              <Card>
-                <div style={{fontSize:12,fontWeight:800,marginBottom:6}}>🔍 Détection Précoce des Difficultés</div>
-                <p style={{fontSize:11,color:C.m,lineHeight:1.5,marginBottom:12}}>Analyse automatique des données de la classe pour identifier les élèves nécessitant un soutien. Indicateurs éducatifs uniquement — pas de diagnostic médical.</p>
-                <Btn onClick={generateEarlyDetection} color={C.red} disabled={earlyLoading} s={{marginBottom:12}}>
-                  {earlyLoading?<><Spinner/>Analyse en cours...</>:"🔍 Analyser la classe"}
-                </Btn>
-                {earlyResult&&<Card s={{background:C.red+"0a",border:"1px solid "+C.red+"20"}}><div>{renderMd(earlyResult)}</div></Card>}
-              </Card>
+              <EarlyDetectionModule db={db} cls={selCls} allUsers={allUsers}/>
             )}
           </>
         )}
       </div>
       <BottomNav tabs={tabs} active={tab} onTab={t=>{setTab(t);}} color={C.amber}/>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════
+// PROGRAMMES TAB (Admin)
+// ═══════════════════════════════════════════
+const ProgrammesTab = ({db, setDB}) => {
+  const [progCls,setProgCls] = useState((db.classes||[])[0]||"");
+  const [newSubj,setNewSubj] = useState("");
+  const [progMsg,setProgMsg] = useState("");
+  const lv = c2l(progCls);
+  const defSubjs = CUR[lv]?.s||[];
+  const customSubjs = db.chapters ? Object.keys(db.chapters).filter(k=>k.startsWith(progCls+"::")).map(k=>k.split("::")[1]) : [];
+  const allSubjs = [...new Set([...defSubjs,...customSubjs])];
+  const addSubjToClass = () => {
+    if(!newSubj.trim()){setProgMsg("❌ Sélectionner une matière");return;}
+    const key=progCls+"::"+newSubj;
+    if(!(db.chapters||{})[key]){setDB(p=>({...p,chapters:{...p.chapters,[key]:DEF_CHAPTERS[newSubj]||["Chapitre 1","Chapitre 2","Chapitre 3"]}}));}
+    setNewSubj("");setProgMsg("✅ Matière ajoutée !");setTimeout(()=>setProgMsg(""),2500);
+  };
+  return (
+    <div>
+      <div style={{fontSize:14,fontWeight:800,fontFamily:FD,marginBottom:12}}>📋 Gestion des Programmes</div>
+      <Sel label="Sélectionner la classe" value={progCls} onChange={setProgCls} options={db.classes||[]}/>
+      {progCls&&<>
+        <Card s={{marginBottom:12,background:C.primary+"08",border:"1px solid "+C.primary+"20",padding:14}}>
+          <div style={{fontSize:13,fontWeight:800,marginBottom:2}}>{progCls} — Niveau: {lv}</div>
+          <div style={{fontSize:10,color:C.m,marginBottom:10}}>Programme officiel + matières personnalisées ({allSubjs.length} matières)</div>
+          <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:8}}>
+            {allSubjs.map(s=>(
+              <span key={s} style={{padding:"4px 10px",borderRadius:8,background:defSubjs.includes(s)?C.primary+"18":C.green+"18",border:"1px solid "+(defSubjs.includes(s)?C.primary:C.green)+"30",color:defSubjs.includes(s)?C.primary:C.green,fontSize:10,fontWeight:700}}>{s}</span>
+            ))}
+          </div>
+          <div style={{fontSize:9,color:C.d}}>🔵 Programme officiel • 🟢 Ajouté manuellement</div>
+        </Card>
+        <Card s={{padding:13}}>
+          <div style={{fontSize:11,fontWeight:800,marginBottom:8}}>➕ Ajouter une matière</div>
+          <Sel value={newSubj} onChange={setNewSubj} options={SUB_LIST.filter(s=>!allSubjs.includes(s))}/>
+          {progMsg&&<div style={{fontSize:11,color:progMsg[0]==="✅"?C.green:C.red,marginBottom:8}}>{progMsg}</div>}
+          <Btn onClick={addSubjToClass} color={C.green} s={{fontSize:11}}>+ Ajouter au programme</Btn>
+        </Card>
+        <Card s={{marginTop:10,padding:13}}>
+          <div style={{fontSize:11,fontWeight:800,marginBottom:8}}>📖 Chapitres par matière</div>
+          {allSubjs.map(s=>{
+            const chs = getChapters(db,progCls,s);
+            return <div key={s} style={{padding:"6px 0",borderBottom:"1px solid "+C.border+"40"}}>
+              <div style={{fontSize:11,fontWeight:700,marginBottom:2}}>{s}</div>
+              <div style={{fontSize:9,color:C.m}}>{chs.slice(0,4).join(" • ")}{chs.length>4?" +"+( chs.length-4)+" autres":""}</div>
+            </div>;
+          })}
+        </Card>
+      </>}
     </div>
   );
 };
@@ -1450,7 +1583,7 @@ Génère une analyse complète incluant:
         {tab==="more"&&(
           <>
             <div style={{display:"flex",gap:6,marginBottom:14,overflowX:"auto",paddingBottom:4}}>
-              {[{id:"classes",l:"🏫 Classes"},{id:"analytics",l:"📈 Analyse IA"},{id:"settings",l:"⚙️ Paramètres"}].map(t=>(
+              {[{id:"classes",l:"🏫 Classes"},{id:"programmes",l:"📋 Programmes"},{id:"analytics",l:"📈 Analyse IA"},{id:"settings",l:"⚙️ Paramètres"}].map(t=>(
                 <button key={t.id} onClick={()=>setSubTab(t.id)} style={{padding:"8px 14px",borderRadius:20,border:"1px solid "+(subTab===t.id?C.green:C.border),background:subTab===t.id?C.green+"18":"transparent",color:subTab===t.id?C.green:C.m,fontSize:11,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>{t.l}</button>
               ))}
             </div>
@@ -1476,6 +1609,8 @@ Génère une analyse complète incluant:
                 })}
               </>
             )}
+
+            {subTab==="programmes"&&<ProgrammesTab db={db} setDB={setDB}/>}
 
             {subTab==="analytics"&&(
               <>
@@ -1508,6 +1643,204 @@ Génère une analyse complète incluant:
         )}
       </div>
       <BottomNav tabs={tabs} active={tab} onTab={t=>{setTab(t);}} color={C.green}/>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════
+// EARLY DETECTION MODULE (AI) — ENHANCED
+// ═══════════════════════════════════════════
+const EarlyDetectionModule = ({db, cls, allUsers}) => {
+  const [mode,setMode] = useState("dashboard");
+  const [selStu,setSelStu] = useState("");
+  const [obsText,setObsText] = useState("");
+  const [analysis,setAnalysis] = useState(null);
+  const [loading,setLoading] = useState(false);
+  const [reportResult,setReportResult] = useState("");
+
+  const students = allUsers.filter(u=>u.role==="student"&&u.cls===cls);
+
+  const getRisk = (s) => {
+    const grades={};
+    Object.entries(db.grades||{}).forEach(([k,v])=>{if(v[s.id]!==undefined){const subj=k.split("::")[1];grades[subj]=Number(v[s.id]);}});
+    const gv=Object.values(grades); const avg=gv.length?(gv.reduce((a,b)=>a+b,0)/gv.length):null;
+    const att=Object.entries(db.attendance||{}).filter(([k])=>k.startsWith(s.cls+"::")).map(([,v])=>v[s.id]);
+    const absences=att.filter(x=>x==="absent").length; const late=att.filter(x=>x==="late").length;
+    const attRate=att.length?Math.round(att.filter(x=>x==="present").length/att.length*100):null;
+    const risks=[];
+    if(avg!==null&&avg<8) risks.push({cat:"Académique",d:"Moyenne critique: "+avg.toFixed(1)+"/20",sev:"high"});
+    else if(avg!==null&&avg<10) risks.push({cat:"Académique",d:"Moyenne insuffisante: "+avg.toFixed(1)+"/20",sev:"medium"});
+    if(attRate!==null&&attRate<70) risks.push({cat:"Absentéisme",d:absences+" absences — "+attRate+"% présence",sev:"high"});
+    else if(attRate!==null&&attRate<85) risks.push({cat:"Présence",d:attRate+"% de présence",sev:"medium"});
+    if(late>=5) risks.push({cat:"Ponctualité",d:late+" retards enregistrés",sev:"medium"});
+    const lowS=Object.entries(grades).filter(([,g])=>g<8).map(([s])=>s);
+    if(lowS.length>=3) risks.push({cat:"Difficultés multiples",d:"Faible en: "+lowS.slice(0,3).join(", "),sev:"high"});
+    const score=Math.min(10,risks.filter(r=>r.sev==="high").length*3+risks.filter(r=>r.sev==="medium").length*1.5);
+    return {avg,attRate,absences,late,grades,risks,score:Math.round(score*10)/10};
+  };
+
+  const sc = s=>s>=7?C.red:s>=4?C.amber:C.green;
+
+  const analyzeStudent = async () => {
+    const s=students.find(x=>x.id===selStu); if(!s) return;
+    setLoading(true); setAnalysis(null);
+    const rd=getRisk(s);
+    const sys=`Tu es ${BRAND_SHORT}, système de détection précoce des difficultés scolaires. IMPORTANT: indicateurs éducatifs UNIQUEMENT — aucun diagnostic médical. Réponds en français avec bienveillance et précision.`;
+    const r=await callAI([{role:"user",content:`Élève: ${s.name} | Classe: ${s.cls} | Niveau: ${c2l(s.cls)}
+Moyenne: ${rd.avg?.toFixed(1)||"N/A"}/20 | Présence: ${rd.attRate!=null?rd.attRate+"%":"N/A"} | Absences: ${rd.absences} | Retards: ${rd.late}
+Notes: ${Object.entries(rd.grades).map(([k,v])=>k+":"+v+"/20").join(", ")||"Aucune"}
+Risques détectés: ${rd.risks.map(r=>r.cat+": "+r.d).join("; ")||"Aucun"}
+Observations enseignant: ${obsText||"Aucune"}
+
+Analyse complète:
+1. 🎯 Score de risque (0-10) et justification
+2. 📋 Indicateurs par catégorie: Lecture, Écriture, Maths, Attention, Mémoire, Rythme, Absentéisme, Stress émotionnel
+3. ⚠️ Alertes prioritaires
+4. 📞 Message bienveillant pour les parents
+5. 🎓 Stratégie de soutien pour l'enseignant
+6. 📅 Plan d'intervention sur 4 semaines`}],sys,2000);
+    setAnalysis({text:r,rd,student:s}); setLoading(false);
+  };
+
+  const weeklyReport = async () => {
+    setLoading(true); setReportResult("");
+    const rows=students.map(s=>{const rd=getRisk(s);return `${s.name}: score=${rd.score}/10, moy=${rd.avg?.toFixed(1)||"N/A"}/20, présence=${rd.attRate!=null?rd.attRate+"%":"N/A"}, alertes=${rd.risks.map(r=>r.cat).join("/")||"aucune"}`;}).join("\n");
+    const sys=`Tu es ${BRAND_SHORT}, générateur de rapports scolaires. Génère un rapport hebdomadaire professionnel en français.`;
+    const r=await callAI([{role:"user",content:`Classe: ${cls} — ${students.length} élèves\n${rows}\n\nRapport hebdomadaire de détection précoce:\n1. 📊 Résumé de la classe\n2. 🚨 Élèves à risque élevé (score ≥6)\n3. ⚠️ Élèves à surveiller (score 3-5)\n4. ✅ Élèves en bonne progression\n5. 📋 Recommandations pour la semaine\n6. 📧 Message synthèse pour la direction`}],sys,2000);
+    setReportResult(r); setLoading(false);
+  };
+
+  return (
+    <div>
+      <div style={{display:"flex",gap:5,marginBottom:12,overflowX:"auto",paddingBottom:3}}>
+        {[{id:"dashboard",l:"📊 Tableau de bord"},{id:"student",l:"🔍 Analyse élève"},{id:"report",l:"📋 Rapport hebdo"}].map(t=>(
+          <button key={t.id} onClick={()=>setMode(t.id)} style={{padding:"7px 12px",borderRadius:16,border:"1px solid "+(mode===t.id?C.red:C.border),background:mode===t.id?C.red+"18":"transparent",color:mode===t.id?C.red:C.m,fontSize:10,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>{t.l}</button>
+        ))}
+      </div>
+
+      {mode==="dashboard"&&<>
+        <div style={{fontSize:10,color:C.m,marginBottom:10,lineHeight:1.5}}>Scores de risque éducatif — {cls} — {students.length} élèves. Indicateurs éducatifs uniquement, non médicaux.</div>
+        {students.length===0&&<Card s={{textAlign:"center",padding:24,color:C.m}}>Aucun élève dans cette classe</Card>}
+        {students.map(s=>{const rd=getRisk(s);return(
+          <Card key={s.id} s={{marginBottom:7,padding:13,background:sc(rd.score)+"06",border:"1px solid "+sc(rd.score)+"20"}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:rd.risks.length?7:0}}>
+              <div style={{width:40,height:40,borderRadius:10,background:sc(rd.score)+"20",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:800,color:sc(rd.score)}}>{rd.score}/10</div>
+              <div style={{flex:1}}><div style={{fontSize:12,fontWeight:700}}>{s.name}</div><div style={{fontSize:10,color:C.m}}>Moy: {rd.avg?.toFixed(1)||"—"}/20 • {rd.attRate!=null?rd.attRate+"%":"—"} présence</div></div>
+              <button onClick={()=>{setSelStu(s.id);setMode("student");}} style={{padding:"5px 9px",borderRadius:7,border:"1px solid "+C.red+"30",background:C.red+"10",color:C.red,fontSize:9,fontWeight:700,cursor:"pointer"}}>Analyser →</button>
+            </div>
+            {rd.risks.length>0&&<div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+              {rd.risks.map((r,i)=><span key={i} style={{padding:"2px 7px",borderRadius:8,background:(r.sev==="high"?C.red:C.amber)+"15",color:r.sev==="high"?C.red:C.amber,fontSize:9,fontWeight:700}}>{r.cat}</span>)}
+            </div>}
+          </Card>
+        );})}
+      </>}
+
+      {mode==="student"&&<>
+        <Sel label="Sélectionner l'élève" value={selStu} onChange={setSelStu} options={students.map(s=>({v:s.id,l:s.name}))}/>
+        {selStu&&(()=>{const s=students.find(x=>x.id===selStu);if(!s)return null;const rd=getRisk(s);return(<>
+          <Card s={{marginBottom:10,background:sc(rd.score)+"08",border:"1px solid "+sc(rd.score)+"25",padding:14}}>
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
+              <div style={{width:50,height:50,borderRadius:13,background:sc(rd.score)+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:800,color:sc(rd.score)}}>{rd.score}/10</div>
+              <div><div style={{fontSize:14,fontWeight:800}}>{s.name}</div><div style={{fontSize:10,color:C.m}}>Score de risque éducatif — non médical</div></div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:7}}>
+              {[{v:rd.avg?.toFixed(1)||"—",l:"Moyenne",c:rd.avg>=10?C.green:C.red},{v:rd.attRate!=null?rd.attRate+"%":"—",l:"Présence",c:rd.attRate>=85?C.green:C.amber},{v:rd.absences,l:"Absences",c:rd.absences>5?C.red:C.green}].map((x,i)=>(
+                <div key={i} style={{textAlign:"center",padding:8,background:"rgba(0,0,0,0.2)",borderRadius:8}}><div style={{fontSize:14,fontWeight:800,color:x.c}}>{x.v}</div><div style={{fontSize:8,color:C.m}}>{x.l}</div></div>
+              ))}
+            </div>
+          </Card>
+          <Card s={{marginBottom:10}}><div style={{fontSize:11,fontWeight:800,marginBottom:6}}>🔍 Observations enseignant (optionnel)</div><Textarea value={obsText} onChange={setObsText} ph="Comportement, participation, difficultés observées en classe..." rows={2}/></Card>
+          <Btn onClick={analyzeStudent} color={C.red} full disabled={loading} s={{marginBottom:10}}>{loading?<><Spinner/>Analyse...</>:"🔍 Lancer l'analyse complète"}</Btn>
+          {loading&&<Card s={{textAlign:"center",padding:24}}><div className="blink" style={{color:C.red}}><Spinner/>Analyse des indicateurs éducatifs...</div></Card>}
+          {analysis&&analysis.student.id===s.id&&!loading&&<Card s={{background:C.red+"06",border:"1px solid "+C.red+"20"}}><div style={{fontSize:10,color:C.red,fontWeight:800,marginBottom:7}}>⚠️ Indicateurs éducatifs uniquement — Pas de diagnostic médical</div><div>{renderMd(analysis.text)}</div></Card>}
+        </>);})()}
+      </>}
+
+      {mode==="report"&&<>
+        <p style={{fontSize:11,color:C.m,lineHeight:1.5,marginBottom:12}}>Rapport hebdomadaire automatique basé sur les données de présence et notes de la classe <strong style={{color:C.w}}>{cls}</strong>.</p>
+        <Btn onClick={weeklyReport} color={C.red} disabled={loading} s={{marginBottom:12}}>{loading?<><Spinner/>Génération...</>:"📋 Générer le rapport hebdomadaire"}</Btn>
+        {reportResult&&<Card s={{background:C.red+"06",border:"1px solid "+C.red+"20"}}><div>{renderMd(reportResult)}</div></Card>}
+      </>}
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════
+// PARENT COACHING PANEL (AI) — ENHANCED
+// ═══════════════════════════════════════════
+const ParentCoachingPanel = ({user, db, children}) => {
+  const [selChild,setSelChild] = useState(children[0]?.id||"");
+  const [coachType,setCoachType] = useState("daily");
+  const [lang,setLang] = useState("fr");
+  const [result,setResult] = useState("");
+  const [loading,setLoading] = useState(false);
+
+  const LANGS = [{v:"fr",l:"🇫🇷 Français"},{v:"en",l:"🇬🇧 English"},{v:"ar",l:"🇩🇯 العربية"},{v:"so",l:"🇸🇴 Soomaali"}];
+  const LANG_SYS = {fr:"Réponds UNIQUEMENT en français.",en:"Reply ONLY in English.",ar:"أجب باللغة العربية فقط.",so:"Ku jawaab Soomaali kaliya."};
+
+  const TYPES = [
+    {id:"daily",ic:"☀️",l:"Conseils du jour"},
+    {id:"weekly",ic:"📊",l:"Résumé semaine"},
+    {id:"plan",ic:"📅",l:"Planning études"},
+    {id:"comm",ic:"✉️",l:"Message enseignant"}
+  ];
+
+  const getChildData = (id) => {
+    const child=children.find(c=>c.id===id); if(!child) return null;
+    const grades={};
+    Object.entries(db.grades||{}).forEach(([k,v])=>{if(v[id]!==undefined){const subj=k.split("::")[1];grades[subj]=v[id];}});
+    const att=Object.entries(db.attendance||{}).filter(([k])=>k.startsWith((child.cls||"")+"::")).map(([,v])=>v[id]);
+    const attRate=att.length?Math.round(att.filter(s=>s==="present").length/att.length*100):null;
+    const gv=Object.values(grades).map(Number); const avg=gv.length?(gv.reduce((a,b)=>a+b,0)/gv.length).toFixed(1):null;
+    const weak=Object.entries(grades).filter(([,g])=>Number(g)<10).map(([s])=>s);
+    const strong=Object.entries(grades).filter(([,g])=>Number(g)>=14).map(([s])=>s);
+    return {child,grades,attRate,avg,weak,strong};
+  };
+
+  const generate = async () => {
+    const data=getChildData(selChild); if(!data) return;
+    const {child,avg,attRate,weak,strong}=data;
+    setLoading(true); setResult("");
+    const typePrompts={
+      daily:`Génère 5 conseils pratiques simples pour AUJOURD'HUI pour aider ${child.name} à la maison. Chaque conseil doit être actionnable en moins de 30 minutes. Inclus un conseil lecture, un conseil mathématiques, un conseil motivation, un conseil routine et un conseil communication parent-enfant.`,
+      weekly:`Génère un résumé hebdomadaire d'apprentissage pour ${child.name} avec: performance de la semaine, 3 points positifs à célébrer, 2 axes d'amélioration, 3 activités recommandées pour le week-end et un objectif pour la semaine prochaine.`,
+      plan:`Crée un planning d'études quotidien complet à la maison pour ${child.name} sur une semaine type. Inclus: horaires précis (ex: 16h-17h), matières à prioriser selon les notes, durées adaptées à l'âge, pauses obligatoires, temps d'écran limité et activité physique.`,
+      comm:`Rédige un message positif et constructif que ${user.name} peut envoyer à l'enseignant de ${child.name} pour établir un partenariat école-famille. Inclus: ce que l'enfant aime à l'école, une question sur son comportement en classe et une proposition de collaboration.`
+    };
+    const sys=`Tu es ${BRAND_SHORT}, assistant coaching parental IA. Tu aides les parents avec des conseils bienveillants, pratiques et adaptés à l'âge de l'enfant. ${LANG_SYS[lang]} Sois chaleureux, concret et encourageant. Utilise des emojis.`;
+    const r=await callAI([{role:"user",content:`Parent: ${user.name} | Enfant: ${child.name} | Classe: ${child.cls} | Niveau: ${c2l(child.cls)}
+Moyenne générale: ${avg||"N/A"}/20 | Présence: ${attRate!=null?attRate+"%":"N/A"}
+Points forts: ${strong.join(", ")||"À évaluer"} | À renforcer: ${weak.join(", ")||"Aucun identifié"}
+
+${typePrompts[coachType]}`}],sys,1800);
+    setResult(r); setLoading(false);
+  };
+
+  if(children.length===0) return <Card s={{textAlign:"center",padding:32,color:C.m}}><div style={{fontSize:32,marginBottom:8}}>👶</div><div>Aucun enfant associé à votre compte.<br/>Contactez l'administration.</div></Card>;
+
+  return (
+    <div>
+      <Sel label="Enfant" value={selChild} onChange={setSelChild} options={children.map(c=>({v:c.id,l:c.name+" ("+c.cls+")"}))}/>
+      <div style={{marginBottom:12}}>
+        <label style={{fontSize:10,color:C.m,fontWeight:700,display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>Langue de coaching</label>
+        <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+          {LANGS.map(l=>(
+            <button key={l.v} onClick={()=>setLang(l.v)} style={{padding:"6px 11px",borderRadius:8,border:"1px solid "+(lang===l.v?C.teal:C.border),background:lang===l.v?C.teal+"18":"transparent",color:lang===l.v?C.teal:C.m,fontSize:11,fontWeight:700,cursor:"pointer"}}>{l.l}</button>
+          ))}
+        </div>
+      </div>
+      <div style={{marginBottom:14}}>
+        <label style={{fontSize:10,color:C.m,fontWeight:700,display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>Type de coaching</label>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+          {TYPES.map(t=>(
+            <button key={t.id} onClick={()=>setCoachType(t.id)} style={{padding:"10px 8px",borderRadius:10,border:"1px solid "+(coachType===t.id?C.teal:C.border),background:coachType===t.id?C.teal+"15":"transparent",color:coachType===t.id?C.teal:C.m,fontSize:11,fontWeight:700,cursor:"pointer",textAlign:"center"}}>
+              <div style={{fontSize:18,marginBottom:2}}>{t.ic}</div>{t.l}
+            </button>
+          ))}
+        </div>
+      </div>
+      <Btn onClick={generate} color={C.teal} full disabled={loading||!selChild} s={{marginBottom:14}}>{loading?<><Spinner/>Génération...</>:"🤝 Générer le coaching"}</Btn>
+      {result&&<Card s={{background:C.teal+"08",border:"1px solid "+C.teal+"25"}}><div style={{fontSize:10,fontWeight:800,color:C.teal,marginBottom:8}}>🤝 Coaching personnalisé — {LANGS.find(l=>l.v===lang)?.l}</div><div>{renderMd(result)}</div></Card>}
     </div>
   );
 };
